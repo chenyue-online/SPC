@@ -4,8 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>总装扭矩SPC智能管理平台</title>
-    <!-- ECharts CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- ECharts 多CDN备选，确保加载成功率 -->
+    <script>
+        (function loadECharts() {
+            var echartsSrc = [
+                'https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js',
+                'https://unpkg.com/echarts@5.5.0/dist/echarts.min.js',
+                'https://cdn.bootcdn.net/ajax/libs/echarts/5.5.0/echarts.min.js'
+            ];
+            var index = 0;
+            function tryLoad() {
+                if (index >= echartsSrc.length) {
+                    console.error('所有ECharts源加载失败，请检查网络');
+                    document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:#ff4444;color:white;padding:10px;text-align:center;">图表库加载失败，请刷新页面重试或检查网络连接。</div>';
+                    return;
+                }
+                var script = document.createElement('script');
+                script.src = echartsSrc[index];
+                script.onload = function() {
+                    window.echartsLoaded = true;
+                };
+                script.onerror = function() {
+                    index++;
+                    tryLoad();
+                };
+                document.head.appendChild(script);
+            }
+            tryLoad();
+        })();
+    </script>
     <!-- SheetJS (XLSX) 用于导入Excel/CSV -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <!-- 辅助库: 文件保存 -->
@@ -30,7 +57,6 @@
             margin: 0 auto;
         }
 
-        /* 头部玻璃卡片 */
         .hero-section {
             background: rgba(10, 25, 55, 0.65);
             backdrop-filter: blur(12px);
@@ -77,14 +103,12 @@
             color: #a3f5ff;
         }
 
-        /* 主网格布局 */
         .main-grid {
             display: grid;
             grid-template-columns: 340px 1fr;
             gap: 24px;
         }
 
-        /* 左侧控制面板 */
         .control-panel {
             background: rgba(8, 20, 48, 0.7);
             backdrop-filter: blur(12px);
@@ -153,13 +177,6 @@
             border-color: #0ff;
             box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.3);
         }
-        .spec-input-group {
-            display: flex;
-            gap: 8px;
-        }
-        .spec-input-group input {
-            flex: 1;
-        }
         button {
             background: linear-gradient(95deg, #0a6c8c, #0b4f6e);
             border: none;
@@ -217,7 +234,6 @@
             margin-bottom: 6px;
         }
 
-        /* 右侧内容区 */
         .content-area {
             display: flex;
             flex-direction: column;
@@ -329,11 +345,29 @@
             background: #0ff;
             border-radius: 10px;
         }
+        .echarts-error {
+            background: rgba(255, 80, 80, 0.2);
+            border: 1px solid #ff6666;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            color: #ffaaaa;
+        }
+        .cpk-grade {
+            font-size: 0.75rem;
+            margin-top: 6px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            display: inline-block;
+            background: rgba(0,0,0,0.4);
+        }
+        .grade-excellent { color: #6fef6f; border-left: 3px solid #2ecc71; padding-left: 8px; }
+        .grade-warning { color: #ffb347; border-left: 3px solid #f39c12; padding-left: 8px; }
+        .grade-danger { color: #ff7b7b; border-left: 3px solid #e74c3c; padding-left: 8px; }
     </style>
 </head>
 <body>
 <div class="dashboard-container">
-    <!-- 头部区域 -->
     <div class="hero-section">
         <div class="title">
             <h1>⚡ 总装扭矩智能管理平台 | SPC </h1>
@@ -347,7 +381,6 @@
     </div>
 
     <div class="main-grid">
-        <!-- 左侧控制区 -->
         <div class="control-panel">
             <div class="section-title">📂 数据源 & 控制策略</div>
             <div id="uploadZone" class="upload-area">
@@ -363,7 +396,6 @@
                 <div style="font-size:11px; margin-top:4px; color:#7aaee0;">* 请选择数值型扭矩(Nm)列</div>
             </div>
             
-            <!-- 直接填写上下规格限 LSL / USL -->
             <div class="section-title" style="margin-top: 16px;">📏 设计规格限 (LSL / USL)</div>
             <div class="form-group">
                 <label>下规格限 LSL (Nm)</label>
@@ -394,11 +426,9 @@
                 </select>
             </div>
             <button id="applyBtn" class="primary">🔄 刷新SPC分析</button>
-            <!-- 新增：强制重绘图表按钮，解决图表不显示问题 -->
             <button id="forceRedrawBtn" class="warning">🖌️ 强制重绘图表</button>
             <button id="exportReportBtn" class="secondary">📄 导出Word分析报告</button>
             
-            <!-- 可编辑的设备追溯信息区域 -->
             <div class="device-info">
                 <div style="font-weight:600; margin-bottom:8px;">🔌 在线扭矩设备追溯 (可编辑)</div>
                 <div class="field-row">
@@ -421,9 +451,7 @@
             </div>
         </div>
 
-        <!-- 右侧内容展示区 -->
         <div class="content-area">
-            <!-- KPI 卡片区 -->
             <div class="stats-row" id="kpiContainer">
                 <div class="stat-card"><div class="stat-label">样本容量(N)</div><div class="stat-value" id="statN">-</div></div>
                 <div class="stat-card"><div class="stat-label">均值(Mean)</div><div class="stat-value" id="statMean">-</div></div>
@@ -432,29 +460,31 @@
                 <div class="stat-card"><div class="stat-label">异常点数</div><div class="stat-value" id="statAnomaly">0</div></div>
             </div>
             <div id="specDisplay" style="text-align:center; margin-top:-10px; margin-bottom:10px; font-size:0.7rem; color:#8bcbff;"></div>
+            <!-- CPK判定专用展示区 -->
+            <div id="cpkJudgmentArea" style="text-align:center; margin-top:-5px; margin-bottom:10px; font-size:0.85rem; font-weight:500; background:rgba(0,30,60,0.5); border-radius:24px; padding:6px 12px; width:fit-content; margin-left:auto; margin-right:auto;"></div>
 
-            <!-- 双图表区 -->
             <div class="chart-card">
                 <div class="chart-header">
                     <span class="chart-title" id="mainChartTitle">📈 I-MR 单值控制图</span>
                     <span style="font-size:11px; color:#69c2ff;">● 数据点 &nbsp; ● 异常点 &nbsp; —— 控制限</span>
                 </div>
                 <div id="chart1" style="height: 290px; width: 100%;"></div>
+                <div id="chart1-error" style="display:none;" class="echarts-error"></div>
             </div>
             <div class="chart-card">
                 <div class="chart-header">
                     <span class="chart-title" id="secondChartTitle">📉 移动极差控制图 (MR)</span>
                 </div>
                 <div id="chart2" style="height: 250px; width: 100%;"></div>
+                <div id="chart2-error" style="display:none;" class="echarts-error"></div>
             </div>
 
-            <!-- 异常列表 & 改善方向 -->
             <div class="chart-card">
                 <div class="chart-title">⚠️ 异常诊断 & 智能改善方向</div>
                 <div id="anomalyList" class="anomaly-table">
                     <table style="width:100%">
-                        <thead> ox<th>序号/组号</th><th>异常值</th><th>违反规则</th><th>建议措施</th> </thead>
-                        <tbody> <td colspan="4">暂无异常，过程稳定或等待数据</td> </tbody>
+                        <thead><tr><th>序号/组号</th><th>异常值</th><th>违反规则</th><th>建议措施</th></tr></thead>
+                        <tbody><tr><td colspan="4">暂无异常，过程稳定或等待数据</td></tr></tbody>
                     </table>
                 </div>
                 <div id="improvementAdvice" class="advice-box">
@@ -465,56 +495,47 @@
     </div>
            
     <footer style="text-align: center;">
-        <p>总装扭矩SPC智能管理平台 v2.1 &copy; 2026/3/24 | SPC自动化 | 规格限直输模式 | 图表稳定性增强版</p>
-        <p style="font-size: 0.85rem; margin-top: 5px;">优化：图例与绘图区间距调整、强制重绘功能、自动容错机制</p>
+        <p>总装扭矩SPC智能管理平台 v2.2 &copy; 2026/3/24 | SPC自动化 | 规格限直输模式 | 图表稳定性增强版</p>
+        <p style="font-size: 0.85rem; margin-top: 5px;">优化：绘图区水平居中、移动极差图容错、多CDN备选</p>
         <p style="font-size: 0.85rem; margin-top: 5px;">提示：数据仅在浏览器中处理，不会上传到服务器</p>
     </footer>
 </div>
 
 <script>
+    // 等待ECharts加载完成的Promise
+    function waitForECharts() {
+        return new Promise((resolve, reject) => {
+            if (window.echarts && typeof window.echarts.init === 'function') {
+                resolve(window.echarts);
+                return;
+            }
+            const checkInterval = setInterval(() => {
+                if (window.echarts && typeof window.echarts.init === 'function') {
+                    clearInterval(checkInterval);
+                    resolve(window.echarts);
+                }
+            }, 100);
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                reject(new Error('ECharts加载超时'));
+            }, 10000);
+        });
+    }
+
     // 全局变量
     let rawTorqueData = [];
-    let currentColumn = null;
     let currentChartType = "xmr";
     let subgroupSize = 5;
     let chart1Instance = null, chart2Instance = null;
-    let currentIChartData = null;
 
-    // 检测 ECharts 是否加载完成
-    function isEChartsReady() {
-        return typeof echarts !== 'undefined' && echarts && echarts.init;
-    }
-
-    // 安全渲染图表，若ECharts未就绪则延迟重试
-    function safeRender(renderFunc, retries = 2) {
-        if (!isEChartsReady()) {
-            if (retries > 0) {
-                console.warn("ECharts未就绪，1秒后重试...");
-                setTimeout(() => safeRender(renderFunc, retries - 1), 1000);
-            } else {
-                alert("图表库加载失败，请刷新页面重试。");
-            }
-            return;
-        }
-        try {
-            renderFunc();
-        } catch (err) {
-            console.error("图表渲染失败", err);
-            alert("图表渲染失败，请点击“强制重绘图表”按钮重试。");
-        }
-    }
-
-    // 获取规格限：直接返回LSL / USL
+    // 获取规格限
     function getSpecLimits() {
         const lsl = parseFloat(document.getElementById("lslInput").value);
         const usl = parseFloat(document.getElementById("uslInput").value);
-        if (isNaN(lsl) || isNaN(usl) || lsl >= usl) {
-            return null;
-        }
+        if (isNaN(lsl) || isNaN(usl) || lsl >= usl) return null;
         return { LSL: lsl, USL: usl };
     }
 
-    // 计算CPK
     function calculateCPK(mean, std, LSL, USL) {
         if (std === 0) return Infinity;
         const cpu = (USL - mean) / (3 * std);
@@ -522,18 +543,31 @@
         return Math.min(cpu, cpl);
     }
 
-    // 根据当前数据自动推荐规格限 (均值 ± 3σ, 保留一位小数)
+    // 新增：根据Cpk值返回判定文本和样式类
+    function getCpkJudgment(cpk) {
+        if (cpk === Infinity || cpk === "N/A" || isNaN(cpk)) return { text: "⚠️ 无法判定 (规格限缺失或无效)", className: "grade-warning" };
+        const val = parseFloat(cpk);
+        if (val >= 1.33) return { text: `✅ Cpk = ${val.toFixed(3)} ≥ 1.33，过程能力充分，稳定合格`, className: "grade-excellent" };
+        if (val >= 1.0 && val < 1.33) return { text: `⚠️ Cpk = ${val.toFixed(3)} (1.0 ≤ Cpk ＜ 1.33)，过程能力尚可，勉强能用，建议持续监控并寻找改善机会`, className: "grade-warning" };
+        if (val < 1.0) return { text: `❌ Cpk = ${val.toFixed(3)} ＜ 1.0，过程能力不足，风险大，不合格品率高，需要立即整改！`, className: "grade-danger" };
+        return { text: `Cpk = ${val.toFixed(3)}`, className: "" };
+    }
+
+    function updateCpkJudgmentDisplay(cpkValue) {
+        const container = document.getElementById("cpkJudgmentArea");
+        if (!container) return;
+        let judgment = getCpkJudgment(cpkValue);
+        container.innerHTML = `<span class="${judgment.className}">${judgment.text}</span>`;
+    }
+
     function autoRecommendSpecLimits(data) {
         if (!data || data.length === 0) return null;
         const mean = data.reduce((a,b)=>a+b,0)/data.length;
         const variance = data.reduce((s,v)=>s+Math.pow(v-mean,2),0)/data.length;
         const std = Math.sqrt(variance);
-        const recommendedLSL = parseFloat((mean - 3 * std).toFixed(1));
-        const recommendedUSL = parseFloat((mean + 3 * std).toFixed(1));
-        return { LSL: recommendedLSL, USL: recommendedUSL };
+        return { LSL: parseFloat((mean - 3 * std).toFixed(1)), USL: parseFloat((mean + 3 * std).toFixed(1)) };
     }
 
-    // 当扭矩列变更时，提示用户是否根据当前数据自动调整规格限
     function onTorqueColumnChanged() {
         if (rawTorqueData.length > 0) {
             const userConfirmed = confirm(`检测到扭矩列已更换，当前数据共 ${rawTorqueData.length} 个有效值。\n是否根据数据分布自动推荐规格限(LSL/USL)？\n点击“确定”自动设置 (均值±3σ)，点击“取消”保留当前规格限。`);
@@ -542,25 +576,16 @@
                 if (recommended) {
                     document.getElementById("lslInput").value = recommended.LSL;
                     document.getElementById("uslInput").value = recommended.USL;
-                    const specMsg = `已自动设置 LSL = ${recommended.LSL} Nm, USL = ${recommended.USL} Nm`;
-                    document.getElementById("specDisplay").innerHTML = `<span style="color:#0ff;">✨ ${specMsg}</span>`;
-                    setTimeout(() => { performSPCAnalysis(); }, 50);
-                } else {
-                    alert("无法自动推荐规格限，请手动填写");
-                }
-            } else {
-                performSPCAnalysis();
-            }
-        } else {
-            performSPCAnalysis();
-        }
+                    document.getElementById("specDisplay").innerHTML = `<span style="color:#0ff;">✨ 已自动设置 LSL = ${recommended.LSL} Nm, USL = ${recommended.USL} Nm</span>`;
+                    setTimeout(() => performSPCAnalysis(), 50);
+                } else alert("无法自动推荐规格限，请手动填写");
+            } else performSPCAnalysis();
+        } else performSPCAnalysis();
     }
 
-    // 文件处理统一函数
     function processUploadedFile(file) {
         if (!file) return;
-        const fileName = file.name;
-        document.getElementById("fileNameDisplay").innerText = fileName;
+        document.getElementById("fileNameDisplay").innerText = file.name;
         const reader = new FileReader();
         reader.onload = function(evt) {
             const data = new Uint8Array(evt.target.result);
@@ -590,32 +615,18 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // 点击上传
     const uploadZone = document.getElementById("uploadZone");
     const fileInput = document.getElementById("fileInput");
     uploadZone.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", (e) => {
-        if (e.target.files.length > 0) processUploadedFile(e.target.files[0]);
-    });
-
-    // 拖拽上传
-    uploadZone.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        uploadZone.classList.add("drag-over");
-    });
-    uploadZone.addEventListener("dragleave", (e) => {
-        e.preventDefault();
-        uploadZone.classList.remove("drag-over");
-    });
+    fileInput.addEventListener("change", (e) => { if (e.target.files.length > 0) processUploadedFile(e.target.files[0]); });
+    uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.classList.add("drag-over"); });
+    uploadZone.addEventListener("dragleave", (e) => { e.preventDefault(); uploadZone.classList.remove("drag-over"); });
     uploadZone.addEventListener("drop", (e) => {
         e.preventDefault();
         uploadZone.classList.remove("drag-over");
         const file = e.dataTransfer.files[0];
-        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv'))) {
-            processUploadedFile(file);
-        } else {
-            alert("请上传 Excel 或 CSV 文件");
-        }
+        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv'))) processUploadedFile(file);
+        else alert("请上传 Excel 或 CSV 文件");
     });
 
     function extractTorqueData() {
@@ -638,13 +649,9 @@
         if(rawTorqueData.length === 0 && window.rawJson) extractTorqueData();
         else performSPCAnalysis();
     });
-    // 强制重绘：直接调用performSPCAnalysis重新计算并绘制
     document.getElementById("forceRedrawBtn").addEventListener("click", () => {
-        if (rawTorqueData.length === 0) {
-            alert("暂无有效数据，请先上传扭矩文件");
-            return;
-        }
-        performSPCAnalysis();
+        if (rawTorqueData.length === 0) alert("暂无有效数据，请先上传扭矩文件");
+        else performSPCAnalysis();
     });
     document.getElementById("chartType").addEventListener("change", (e) => {
         currentChartType = e.target.value;
@@ -657,7 +664,6 @@
         performSPCAnalysis();
     });
 
-    // 通用函数：根据序列数据和LCL/UCL智能计算y轴最小值（美观）
     function getSmartYMin(seriesData, LCL, UCL, extraMargin = 0.1) {
         let minVal = Math.min(...seriesData, LCL);
         let maxVal = Math.max(...seriesData, UCL);
@@ -667,26 +673,32 @@
         return candidateMin;
     }
 
-    function performSPCAnalysis() {
-        if(rawTorqueData.length === 0) {
-            alert("请先上传扭矩数据文件并选择扭矩列");
+    async function performSPCAnalysis() {
+        if(rawTorqueData.length === 0) { alert("请先上传扭矩数据文件并选择扭矩列"); return; }
+        try {
+            await waitForECharts();
+        } catch (err) {
+            document.getElementById("chart1-error").style.display = "block";
+            document.getElementById("chart1-error").innerHTML = "⚠️ ECharts图表库加载失败，请检查网络后点击“强制重绘图表”重试。";
+            document.getElementById("chart2-error").style.display = "block";
+            document.getElementById("chart2-error").innerHTML = "⚠️ ECharts图表库加载失败，请检查网络后点击“强制重绘图表”重试。";
             return;
         }
         currentChartType = document.getElementById("chartType").value;
         subgroupSize = parseInt(document.getElementById("subgroupSize").value) || 5;
         const ruleType = document.getElementById("controlRule").value;
-
-        if(currentChartType === "xmr") {
-            computeAndPlotXMR(rawTorqueData, ruleType);
-        } else {
-            computeAndPlotXbarR(rawTorqueData, subgroupSize, ruleType);
-        }
+        if(currentChartType === "xmr") computeAndPlotXMR(rawTorqueData, ruleType);
+        else computeAndPlotXbarR(rawTorqueData, subgroupSize, ruleType);
     }
 
     function computeAndPlotXMR(data, ruleType) {
         const n = data.length;
+        if (n < 2) {
+            alert("数据点少于2个，无法计算移动极差图");
+            return;
+        }
         let mr = [];
-        for(let i=1;i<n;i++) mr.push(Math.abs(data[i]-data[i-1]));
+        for (let i = 1; i < n; i++) mr.push(Math.abs(data[i] - data[i-1]));
         const meanX = data.reduce((a,b)=>a+b,0)/n;
         const meanMR = mr.reduce((a,b)=>a+b,0)/mr.length;
         const d2 = 1.128;
@@ -696,12 +708,8 @@
         const LCL_MR = 0;
 
         let anomaliesX = [], anomaliesMR = [];
-        for(let i=0;i<n;i++) {
-            if(data[i] > UCL_X || data[i] < LCL_X) anomaliesX.push({idx:i, val:data[i], type:"单值超限"});
-        }
-        for(let i=0;i<mr.length;i++) {
-            if(mr[i] > UCL_MR) anomaliesMR.push({idx:i, val:mr[i], type:"移动极差超限"});
-        }
+        for(let i=0;i<n;i++) if(data[i] > UCL_X || data[i] < LCL_X) anomaliesX.push({idx:i, val:data[i], type:"单值超限"});
+        for(let i=0;i<mr.length;i++) if(mr[i] > UCL_MR) anomaliesMR.push({idx:i, val:mr[i], type:"移动极差超限"});
         if(ruleType === "full") {
             let side = 0, count=0;
             for(let i=0;i<n;i++) {
@@ -712,19 +720,21 @@
         }
         updateKPIAndCPK(data, meanX);
         updateAnomalyTable(anomaliesX, anomaliesMR, currentChartType);
-        safeRender(() => {
-            drawControlChart1(data, UCL_X, meanX, LCL_X, anomaliesX, "单值控制图 (I Chart)", true);
+        drawControlChart1(data, UCL_X, meanX, LCL_X, anomaliesX, "单值控制图 (I Chart)", true);
+        if (mr.length === 0) {
+            const errorDiv = document.getElementById("chart2-error");
+            errorDiv.style.display = "block";
+            errorDiv.innerHTML = "⚠️ 移动极差数据不足（至少需要2个数据点）";
+            if (chart2Instance) chart2Instance.dispose();
+            document.getElementById("chart2").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ffaa88;">数据不足，无法显示极差控制图</div>';
+        } else {
             drawControlChart2(mr, UCL_MR, meanMR, LCL_MR, anomaliesMR, "移动极差控制图 (MR Chart)");
-        });
-        currentIChartData = {data, UCL:UCL_X, CL:meanX, LCL:LCL_X, anomalies:anomaliesX, mrData:mr, mrUCL:UCL_MR, mrCL:meanMR, mrLCL:LCL_MR, mrAnomalies:anomaliesMR};
+        }
     }
 
     function computeAndPlotXbarR(data, subSize, ruleType) {
         let groups = [];
-        for(let i=0;i+subSize<=data.length;i+=subSize) {
-            let group = data.slice(i,i+subSize);
-            groups.push(group);
-        }
+        for(let i=0;i+subSize<=data.length;i+=subSize) groups.push(data.slice(i,i+subSize));
         if(groups.length<2) { alert("子组数量不足2组，请减小子组大小或增加数据"); return; }
         let means = groups.map(g => g.reduce((a,b)=>a+b,0)/g.length);
         let ranges = groups.map(g => Math.max(...g) - Math.min(...g));
@@ -738,9 +748,7 @@
         const LCL_R = D3 * meanRange;
 
         let anomaliesX = [], anomaliesR = [];
-        for(let i=0;i<means.length;i++) {
-            if(means[i] > UCL_Xbar || means[i] < LCL_Xbar) anomaliesX.push({idx:i, val:means[i], type:"均值超限"});
-        }
+        for(let i=0;i<means.length;i++) if(means[i] > UCL_Xbar || means[i] < LCL_Xbar) anomaliesX.push({idx:i, val:means[i], type:"均值超限"});
         for(let i=0;i<ranges.length;i++) {
             if(ranges[i] > UCL_R) anomaliesR.push({idx:i, val:ranges[i], type:"极差超限"});
             if(ranges[i] < LCL_R) anomaliesR.push({idx:i, val:ranges[i], type:"极差低于下控制限"});
@@ -754,14 +762,11 @@
             }
         }
         updateKPIAndCPK(data, meanOfMeans);
-        safeRender(() => {
-            drawControlChart1(means, UCL_Xbar, meanOfMeans, LCL_Xbar, anomaliesX, "均值控制图 (Xbar Chart)", false);
-            drawControlChart2(ranges, UCL_R, meanRange, LCL_R, anomaliesR, "极差控制图 (R Chart)");
-        });
+        drawControlChart1(means, UCL_Xbar, meanOfMeans, LCL_Xbar, anomaliesX, "均值控制图 (Xbar Chart)", false);
+        drawControlChart2(ranges, UCL_R, meanRange, LCL_R, anomaliesR, "极差控制图 (R Chart)");
         updateAnomalyTable(anomaliesX, anomaliesR, "xbarR");
         let advice = generateImprovementAdvice(anomaliesX.concat(anomaliesR), "xbarR");
         document.getElementById("improvementAdvice").innerHTML = `💡 改善策略指引：${advice}`;
-        currentIChartData = {type:"xbarR", means, ranges, UCL_Xbar, meanOfMeans, LCL_Xbar, UCL_R, meanRange, LCL_R, anomaliesX, anomaliesR, groups};
     }
 
     function getA2(n) { const map={2:1.88,3:1.023,4:0.729,5:0.577,6:0.483,7:0.419,8:0.373,9:0.337,10:0.308}; return map[n]||0.308; }
@@ -772,71 +777,139 @@
         const std = Math.sqrt(data.reduce((s,v)=>s+Math.pow(v-mean,2),0)/data.length);
         const specs = getSpecLimits();
         let cpkVal = "N/A";
+        let cpkNumeric = NaN;
         let specDisplayHtml = "";
-        if (specs && !isNaN(specs.USL) && !isNaN(specs.LSL) && specs.USL > specs.LSL) {
-            cpkVal = calculateCPK(mean, std, specs.LSL, specs.USL).toFixed(3);
+        if (specs && specs.USL > specs.LSL) {
+            cpkNumeric = calculateCPK(mean, std, specs.LSL, specs.USL);
+            cpkVal = cpkNumeric.toFixed(3);
             specDisplayHtml = `规格限: LSL=${specs.LSL.toFixed(2)} Nm, USL=${specs.USL.toFixed(2)} Nm`;
-        } else {
-            specDisplayHtml = `⚠️ 请正确填写规格限（LSL < USL）以计算Cpk`;
-        }
+        } else specDisplayHtml = `⚠️ 请正确填写规格限（LSL < USL）以计算Cpk`;
         document.getElementById("specDisplay").innerHTML = specDisplayHtml;
         document.getElementById("statMean").innerText = mean.toFixed(2);
         document.getElementById("statStd").innerText = std.toFixed(3);
         document.getElementById("statN").innerText = data.length;
         document.getElementById("statCpk").innerText = cpkVal;
         document.getElementById("statAnomaly").innerText = "计算中";
+        // 更新CPK判定区域
+        if (!isNaN(cpkNumeric) && isFinite(cpkNumeric) && specs) {
+            updateCpkJudgmentDisplay(cpkNumeric);
+        } else {
+            updateCpkJudgmentDisplay("N/A");
+        }
     }
 
-    // 优化后的绘图函数：调整图例与绘图区的距离，避免重叠
     function drawControlChart1(series, UCL, CL, LCL, anomalies, title, isIChart = true) {
-        if(chart1Instance) chart1Instance.dispose();
+        if (chart1Instance) chart1Instance.dispose();
         const dom = document.getElementById("chart1");
-        chart1Instance = echarts.init(dom);
-        let anomalyPoints = anomalies.map(a=> ({value:a.val, xAxis:a.idx+1}));
-        let yMin = getSmartYMin(series, LCL, UCL, 0.12);
-        let option = {
-            title: { text: title, left: 'center', top: 8, textStyle: { fontSize: 13, color: '#b9f2ff' } },
-            tooltip: { trigger: 'axis' },
-            grid: { top: 70, bottom: 25, left: 55, right: 35, containLabel: true }, // 增加top值，为图例腾出空间
-            xAxis: { type: 'category', name: '样本序号/子组序号', nameLocation: 'middle', nameGap: 30, axisLabel: { color: '#cce7ff' }, axisLine: { lineStyle: { color: '#0ff' } } },
-            yAxis: { type: 'value', name: '扭矩值 (Nm)', nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#cce7ff' }, splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } }, min: yMin },
-            series: [
-                { name: '测量值', type: 'line', data: series, smooth: false, symbol: 'circle', symbolSize: 6, lineStyle: { width: 2, color: '#2dd4bf' }, itemStyle: { color: '#5ee0fa' } },
-                { name: 'UCL', type: 'line', data: Array(series.length).fill(UCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
-                { name: 'CL', type: 'line', data: Array(series.length).fill(CL), lineStyle: { type: 'solid', color: '#2ecc71', width: 1.8 }, symbol: 'none' },
-                { name: 'LCL', type: 'line', data: Array(series.length).fill(LCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
-                { name: '异常点', type: 'scatter', data: anomalyPoints.map(p=>[p.xAxis-1, p.value]), symbolSize: 10, itemStyle: { color: '#ff6666', borderColor: '#ffffff', borderWidth: 1 } }
-            ],
-            legend: { data: ['测量值', 'UCL', 'CL', 'LCL', '异常点'], left: 'left', top: 40, textStyle: { color: '#d9f0ff' }, itemWidth: 25, itemHeight: 12 }, // 图例下移，避免与标题重叠
-            backgroundColor: 'transparent'
-        };
-        chart1Instance.setOption(option);
-        document.getElementById("mainChartTitle").innerText = title;
+        if (!dom) return;
+        if (!Array.isArray(series) || series.length === 0) {
+            document.getElementById("chart1-error").style.display = "block";
+            document.getElementById("chart1-error").innerHTML = "无有效数据，请检查数据源。";
+            return;
+        }
+        try {
+            chart1Instance = echarts.init(dom);
+            const anomalyPoints = anomalies.map(a => ({ value: a.val, xAxis: a.idx + 1 }));
+            const yMin = getSmartYMin(series, LCL, UCL, 0.12);
+            const option = {
+                title: { text: title, left: 'center', top: 8, textStyle: { fontSize: 13, color: '#b9f2ff' } },
+                tooltip: { trigger: 'axis' },
+                grid: { top: 70, bottom: 25, left: '-6%', right: '8%', containLabel: true },
+                xAxis:
+                {
+                    type: 'category',
+                    name: '样本序号/子组序号',
+                    nameLocation: 'middle',
+                    nameGap: 30,
+                    axisLabel: { color: '#cce7ff', fontSize: 10, fontWeight: 'normal' },
+                    axisLine: { lineStyle: { color: '#0ff' } }
+                },
+                yAxis: { type: 'value', name: '扭矩值 (Nm)', nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#cce7ff' ,fontSize: 10, fontWeight: 'normal' }, splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } }, min: yMin },
+                series: [
+                    { name: '测量值', type: 'line', data: series, smooth: false, symbol: 'circle', symbolSize: 6, lineStyle: { width: 2, color: '#2dd4bf' }, itemStyle: { color: '#5ee0fa' } },
+                    { name: 'UCL', type: 'line', data: Array(series.length).fill(UCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
+                    { name: 'CL', type: 'line', data: Array(series.length).fill(CL), lineStyle: { type: 'solid', color: '#2ecc71', width: 1.8 }, symbol: 'none' },
+                    { name: 'LCL', type: 'line', data: Array(series.length).fill(LCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
+                    { name: '异常点', type: 'scatter', data: anomalyPoints.map(p => [p.xAxis - 1, p.value]), symbolSize: 10, itemStyle: { color: '#ff6666', borderColor: '#ffffff', borderWidth: 1 } }
+                ],
+                legend: { data: ['测量值', 'UCL', 'CL', 'LCL', '异常点'], left: 'left', top: 40, textStyle: { color: '#d9f0ff' }, itemWidth: 25, itemHeight: 12 },
+                backgroundColor: 'transparent'
+            };
+            chart1Instance.setOption(option);
+            document.getElementById("mainChartTitle").innerText = title;
+            document.getElementById("chart1-error").style.display = "none";
+        } catch (err) {
+            console.error("chart1渲染失败:", err);
+            document.getElementById("chart1-error").style.display = "block";
+            document.getElementById("chart1-error").innerHTML = `图表渲染失败: ${err.message || "未知错误"}，请点击“强制重绘图表”重试。`;
+        }
     }
 
     function drawControlChart2(series, UCL, CL, LCL, anomalies, title) {
-        if(chart2Instance) chart2Instance.dispose();
+        if (chart2Instance) chart2Instance.dispose();
         const dom = document.getElementById("chart2");
-        chart2Instance = echarts.init(dom);
-        let anomalyPoints = anomalies.map(a=> ({value:a.val, xAxis:a.idx+1}));
-        let option = {
-            title: { text: title, left: 'center', top: 8, textStyle: { fontSize: 13, color: '#b9f2ff' } },
-            tooltip: { trigger: 'axis' },
-            grid: { top: 70, bottom: 20, left: 55, right: 35, containLabel: true }, // 同样增加top
-            xAxis: { type: 'category', name: '样本/子组序号', nameLocation: 'middle', nameGap: 30, axisLabel: { color: '#cce7ff' } },
-            yAxis: { type: 'value', name: '极差/移动极差', nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#cce7ff' }, splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } } },
-            series: [
-                { name: '极差值', type: 'line', data: series, symbol: 'diamond', symbolSize: 6, lineStyle: { width: 2, color: '#3b82f6' }, itemStyle: { color: '#60a5fa' } },
-                { name: 'UCL', type: 'line', data: Array(series.length).fill(UCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
-                { name: 'CL', type: 'line', data: Array(series.length).fill(CL), lineStyle: { color: '#2ecc71', width: 1.8 }, symbol: 'none' },
-                { name: 'LCL', type: 'line', data: Array(series.length).fill(LCL||0), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
-                { name: '异常点', type: 'scatter', data: anomalyPoints.map(p=>[p.xAxis-1, p.value]), symbolSize: 10, itemStyle: { color: '#ff8888' } }
-            ],
-            legend: { data: ['极差值', 'UCL', 'CL', 'LCL', '异常点'], left: 'left', top: 40, textStyle: { color: '#d9f0ff' } },
-            backgroundColor: 'transparent'
-        };
-        chart2Instance.setOption(option);
-        document.getElementById("secondChartTitle").innerText = title;
+        if (!dom) return;
+        if (!Array.isArray(series) || series.length === 0) {
+            document.getElementById("chart2-error").style.display = "block";
+            document.getElementById("chart2-error").innerHTML = "无有效数据，请检查数据源。";
+            dom.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ffaa88;">数据不足，无法显示极差控制图</div>';
+            return;
+        }
+        try {
+            chart2Instance = echarts.init(dom);
+            const anomalyPoints = anomalies.map(a => ({ value: a.val, xAxis: a.idx + 1 }));
+            const safeUCL = isFinite(UCL) ? UCL : 0;
+            const safeCL = isFinite(CL) ? CL : 0;
+            const safeLCL = isFinite(LCL) ? LCL : 0;
+            const option = {
+                title: { text: title, left: 'center', top: 8, textStyle: { fontSize: 13, color: '#b9f2ff' } },
+                tooltip: { trigger: 'axis' },
+                grid: { top: 70, bottom: 25, left: '8%', right: '8%', containLabel: true },  // 调整底部间距
+                xAxis: {
+                    type: 'category',
+                    name: '样本/子组序号',
+                    nameLocation: 'middle',
+                    nameGap: 30,  
+                    nameTextStyle: {  
+                        color: '#cce7ff',
+                        fontSize: 10,
+                        fontWeight: 'normal'
+                    },
+                    axisLabel: {
+                        color: '#cce7ff',
+                        fontSize: 10,
+                        fontWeight: 'normal',
+                        rotate: 0,  // 保持水平显示
+                        interval: 'auto'  // 自动调整标签间隔
+                    },
+                    axisLine: { lineStyle: { color: '#0ff' } }  // 添加轴线颜色，与图表一一致
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '极差/移动极差',
+                    nameLocation: 'middle',
+                    nameGap: 40,
+                    axisLabel: { color: '#cce7ff', fontSize: 10, fontWeight: 'normal' },
+                    splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } }
+                },
+                series: [
+                    { name: '极差值', type: 'line', data: series, symbol: 'diamond', symbolSize: 6, lineStyle: { width: 2, color: '#3b82f6' }, itemStyle: { color: '#60a5fa' } },
+                    { name: 'UCL', type: 'line', data: Array(series.length).fill(safeUCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
+                    { name: 'CL', type: 'line', data: Array(series.length).fill(safeCL), lineStyle: { color: '#2ecc71', width: 1.8 }, symbol: 'none' },
+                    { name: 'LCL', type: 'line', data: Array(series.length).fill(safeLCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
+                    { name: '异常点', type: 'scatter', data: anomalyPoints.map(p => [p.xAxis - 1, p.value]), symbolSize: 10, itemStyle: { color: '#ff8888' } }
+                ],
+                legend: { data: ['极差值', 'UCL', 'CL', 'LCL', '异常点'], left: 'left', top: 40, textStyle: { color: '#d9f0ff' } },
+                backgroundColor: 'transparent'
+            };
+            chart2Instance.setOption(option);
+            document.getElementById("secondChartTitle").innerText = title;
+            document.getElementById("chart2-error").style.display = "none";
+        } catch (err) {
+            console.error("chart2渲染失败:", err);
+            document.getElementById("chart2-error").style.display = "block";
+            document.getElementById("chart2-error").innerHTML = `图表渲染失败: ${err.message || "未知错误"}，请点击"强制重绘图表"重试。`;
+        }
     }
 
     function updateAnomalyTable(anomX, anomR, chartType) {
@@ -865,17 +938,16 @@
         return advice;
     }
 
-    // 导出 Word 报告
     document.getElementById("exportReportBtn").addEventListener("click", async () => {
         if(!chart1Instance || !chart2Instance) { alert("请先完成一次SPC分析"); return; }
         const img1 = chart1Instance.getDataURL({ type: 'png' });
         const img2 = chart2Instance.getDataURL({ type: 'png' });
         const meanVal = document.getElementById("statMean").innerText;
         const cpkVal = document.getElementById("statCpk").innerText;
+        const cpkJudgmentSpan = document.getElementById("cpkJudgmentArea")?.innerText || "";
         const anomalyCount = document.getElementById("statAnomaly").innerText;
         let tableHtml = document.getElementById("anomalyList").innerHTML;
         let adviceText = document.getElementById("improvementAdvice").innerHTML;
-        
         let columnSelect = document.getElementById("columnSelect");
         let torqueColumnName = columnSelect.options[columnSelect.selectedIndex]?.text || "扭矩";
         const deviceId = document.getElementById("deviceId").value;
@@ -883,66 +955,33 @@
         const torqueRange = document.getElementById("torqueRange").value;
         const batchInfo = document.getElementById("batchInfo").value;
         const specs = getSpecLimits();
-        let specText = "";
-        if (specs) specText = `LSL = ${specs.LSL.toFixed(2)} Nm, USL = ${specs.USL.toFixed(2)} Nm`;
-        
-        const deviceHtml = `
-        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:16px; padding:12px; margin-bottom:24px;">
-            <h3 style="margin-top:0; color:#0a6c8c;">🔧 扭矩设备追溯信息</h3>
-            <p><strong>设备ID：</strong> ${deviceId}</p>
-            <p><strong>校准状态：</strong> ${calibStatus}</p>
-            <p><strong>扭矩量程/精度：</strong> ${torqueRange}</p>
-            <p><strong>最近批次/追溯码：</strong> ${batchInfo}</p>
-        </div>`;
-        
-        const reportHtml = `
-        <!DOCTYPE html>
-        <html><head><meta charset="UTF-8"><title>扭矩SPC质量分析报告</title>
-        <style>
-            body{font-family: 'Segoe UI', Arial, sans-serif; background: #ffffff; color: #1e293b; padding: 40px; margin:0;}
-            h1{color: #0a6c8c; border-left: 6px solid #0a6c8c; padding-left: 20px;}
-            h3{color: #1e5a7a; margin-top: 20px;}
-            .img-card{margin: 20px 0; text-align: center;}
-            table{border-collapse: collapse; width: 100%; margin: 16px 0;}
-            th, td{border: 1px solid #cbd5e1; padding: 8px; text-align: left;}
-            th{background: #eef2ff;}
-            .advice{background: #fef9e3; border-left: 4px solid #f97316; padding: 12px; margin-top: 20px;}
-            hr{margin: 24px 0;}
-        </style>
-        </head>
-        <body>
-        <h1>⚡ 总装扭矩智能分析报告</h1>
-        <p><strong>生成时间:</strong> ${new Date().toLocaleString()}</p>
-        ${deviceHtml}
-        <div><h3>📊 ${torqueColumnName} 关键过程指标</h3>
-        <p>📈 均值: ${meanVal} Nm &nbsp; | &nbsp; 📊 过程能力 Cpk: ${cpkVal} &nbsp; | &nbsp; ⚠️ 异常点数: ${anomalyCount}</p>
-        <p>📐 规格参数: ${specText}</p>
-        </div>
-        <div class="img-card"><h3>📉 控制图 1</h3><img src="${img1}" width="90%"/></div>
-        <div class="img-card"><h3>📉 控制图 2</h3><img src="${img2}" width="90%"/></div>
-        <div><h3>🔍 异常点明细及改善建议</h3>${tableHtml}</div>
-        <div class="advice">${adviceText}</div>
-        <hr/>
-        <footer style="font-size:12px; color:#5b6e8c;">报告基于SPC统计过程控制标准，由总装扭矩智能管理平台生成，用于领导汇报与现场质量改善。</footer>
-        </body></html>`;
-        
+        let specText = specs ? `LSL = ${specs.LSL.toFixed(2)} Nm, USL = ${specs.USL.toFixed(2)} Nm` : "未设置";
+        const deviceHtml = `<div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:16px; padding:12px; margin-bottom:24px;"><h3 style="margin-top:0; color:#0a6c8c;">🔧 扭矩设备追溯信息</h3><p><strong>设备ID：</strong> ${deviceId}</p><p><strong>校准状态：</strong> ${calibStatus}</p><p><strong>扭矩量程/精度：</strong> ${torqueRange}</p><p><strong>最近批次/追溯码：</strong> ${batchInfo}</p></div>`;
+        const reportHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>扭矩SPC质量分析报告</title><style>body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#1e293b;padding:40px;margin:0;}h1{color:#0a6c8c;border-left:6px solid #0a6c8c;padding-left:20px;}h3{color:#1e5a7a;margin-top:20px;}.img-card{margin:20px 0;text-align:center;}table{border-collapse:collapse;width:100%;margin:16px 0;}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;}th{background:#eef2ff;}.advice{background:#fef9e3;border-left:4px solid #f97316;padding:12px;margin-top:20px;}hr{margin:24px 0;}.cpk-grade-msg{font-weight:bold;}</style></head><body><h1>⚡ 总装扭矩智能分析报告</h1><p><strong>生成时间:</strong> ${new Date().toLocaleString()}</p>${deviceHtml}<div><h3>📊 ${torqueColumnName} 关键过程指标</h3><p>📈 均值: ${meanVal} Nm &nbsp; | &nbsp; 📊 过程能力 Cpk: ${cpkVal} &nbsp; | &nbsp; ⚠️ 异常点数: ${anomalyCount}</p><p>📐 规格参数: ${specText}</p><p><strong>🔍 CPK判定：</strong> ${cpkJudgmentSpan}</p></div><div class="img-card"><h3>📉 控制图 1</h3><img src="${img1}" width="90%"/></div><div class="img-card"><h3>📉 控制图 2</h3><img src="${img2}" width="90%"/></div><div><h3>🔍 异常点明细及改善建议</h3>${tableHtml}</div><div class="advice">${adviceText}</div><hr/><footer style="font-size:12px; color:#5b6e8c;">报告基于SPC统计过程控制标准，由总装扭矩智能管理平台生成，用于展示汇报与指导现场质量改善。</footer></body></html>`;
         const blob = new Blob([reportHtml], {type: "application/msword"});
         saveAs(blob, `Torque_SPC_Report_${new Date().toISOString().slice(0,19)}.doc`);
     });
 
-    // 窗口大小变化时重绘图表，保持比例
     window.addEventListener("resize", () => {
         if (chart1Instance) chart1Instance.resize();
         if (chart2Instance) chart2Instance.resize();
     });
 
-    // 演示数据初始化，并确保 DOM 完全加载
-    window.addEventListener("load", () => {
+    window.addEventListener("load", async () => {
         let demo = [68.2, 69.1, 70.3, 71.5, 70.8, 69.6, 70.1, 72.0, 73.5, 72.2, 68.9, 70.4, 69.7, 71.2, 70.5, 69.8, 74.1, 70.9, 71.4, 70.0];
         rawTorqueData = demo;
         document.getElementById("fileNameDisplay").innerText = "内置演示数据 (20组扭矩)";
         window.rawJson = null;
-        performSPCAnalysis();
+        try {
+            await waitForECharts();
+            performSPCAnalysis();
+        } catch (err) {
+            console.error("初始化失败", err);
+            document.getElementById("chart1-error").style.display = "block";
+            document.getElementById("chart1-error").innerHTML = "图表库加载失败，请刷新页面重试。";
+            document.getElementById("chart2-error").style.display = "block";
+            document.getElementById("chart2-error").innerHTML = "图表库加载失败，请刷新页面重试。";
+        }
     });
 </script>
 </body>
