@@ -181,6 +181,10 @@
             background: linear-gradient(95deg, #e67e22, #c2410c);
             margin-top: 12px;
         }
+        button.warning {
+            background: linear-gradient(95deg, #2c7da0, #1f5e7a);
+            margin-top: 8px;
+        }
         button:hover {
             transform: translateY(-2px);
             filter: brightness(1.05);
@@ -359,7 +363,7 @@
                 <div style="font-size:11px; margin-top:4px; color:#7aaee0;">* 请选择数值型扭矩(Nm)列</div>
             </div>
             
-            <!-- 修改：直接填写上下规格限 LSL / USL -->
+            <!-- 直接填写上下规格限 LSL / USL -->
             <div class="section-title" style="margin-top: 16px;">📏 设计规格限 (LSL / USL)</div>
             <div class="form-group">
                 <label>下规格限 LSL (Nm)</label>
@@ -390,6 +394,8 @@
                 </select>
             </div>
             <button id="applyBtn" class="primary">🔄 刷新SPC分析</button>
+            <!-- 新增：强制重绘图表按钮，解决图表不显示问题 -->
+            <button id="forceRedrawBtn" class="warning">🖌️ 强制重绘图表</button>
             <button id="exportReportBtn" class="secondary">📄 导出Word分析报告</button>
             
             <!-- 可编辑的设备追溯信息区域 -->
@@ -417,7 +423,7 @@
 
         <!-- 右侧内容展示区 -->
         <div class="content-area">
-            <!-- KPI 卡片区，增加规格限显示 -->
+            <!-- KPI 卡片区 -->
             <div class="stats-row" id="kpiContainer">
                 <div class="stat-card"><div class="stat-label">样本容量(N)</div><div class="stat-value" id="statN">-</div></div>
                 <div class="stat-card"><div class="stat-label">均值(Mean)</div><div class="stat-value" id="statMean">-</div></div>
@@ -447,8 +453,8 @@
                 <div class="chart-title">⚠️ 异常诊断 & 智能改善方向</div>
                 <div id="anomalyList" class="anomaly-table">
                     <table style="width:100%">
-                        <thead> <tr><th>序号/组号</th><th>异常值</th><th>违反规则</th><th>建议措施</th></tr> </thead>
-                        <tbody> <tr><td colspan="4">暂无异常，过程稳定或等待数据</td></tr> </tbody>
+                        <thead> ox<th>序号/组号</th><th>异常值</th><th>违反规则</th><th>建议措施</th> </thead>
+                        <tbody> <td colspan="4">暂无异常，过程稳定或等待数据</td> </tbody>
                     </table>
                 </div>
                 <div id="improvementAdvice" class="advice-box">
@@ -459,8 +465,8 @@
     </div>
            
     <footer style="text-align: center;">
-        <p>总装扭矩SPC智能管理平台 v1.2.0 &copy; 2026/3/23 | SPC自动化 | 规格限直输模式</p>
-        <p style="font-size: 0.85rem; margin-top: 5px;">优化：纵轴自适应 & 扭矩列切换智能提示</p>
+        <p>总装扭矩SPC智能管理平台 v2.1 &copy; 2026/3/24 | SPC自动化 | 规格限直输模式 | 图表稳定性增强版</p>
+        <p style="font-size: 0.85rem; margin-top: 5px;">优化：图例与绘图区间距调整、强制重绘功能、自动容错机制</p>
         <p style="font-size: 0.85rem; margin-top: 5px;">提示：数据仅在浏览器中处理，不会上传到服务器</p>
     </footer>
 </div>
@@ -473,6 +479,30 @@
     let subgroupSize = 5;
     let chart1Instance = null, chart2Instance = null;
     let currentIChartData = null;
+
+    // 检测 ECharts 是否加载完成
+    function isEChartsReady() {
+        return typeof echarts !== 'undefined' && echarts && echarts.init;
+    }
+
+    // 安全渲染图表，若ECharts未就绪则延迟重试
+    function safeRender(renderFunc, retries = 2) {
+        if (!isEChartsReady()) {
+            if (retries > 0) {
+                console.warn("ECharts未就绪，1秒后重试...");
+                setTimeout(() => safeRender(renderFunc, retries - 1), 1000);
+            } else {
+                alert("图表库加载失败，请刷新页面重试。");
+            }
+            return;
+        }
+        try {
+            renderFunc();
+        } catch (err) {
+            console.error("图表渲染失败", err);
+            alert("图表渲染失败，请点击“强制重绘图表”按钮重试。");
+        }
+    }
 
     // 获取规格限：直接返回LSL / USL
     function getSpecLimits() {
@@ -512,7 +542,6 @@
                 if (recommended) {
                     document.getElementById("lslInput").value = recommended.LSL;
                     document.getElementById("uslInput").value = recommended.USL;
-                    // 提示更新完成
                     const specMsg = `已自动设置 LSL = ${recommended.LSL} Nm, USL = ${recommended.USL} Nm`;
                     document.getElementById("specDisplay").innerHTML = `<span style="color:#0ff;">✨ ${specMsg}</span>`;
                     setTimeout(() => { performSPCAnalysis(); }, 50);
@@ -520,7 +549,6 @@
                     alert("无法自动推荐规格限，请手动填写");
                 }
             } else {
-                // 不自动更新，但触发一次重算让cpk基于新列数据重新计算
                 performSPCAnalysis();
             }
         } else {
@@ -550,7 +578,6 @@
                 colSelect.appendChild(option);
             });
             window.rawJson = json;
-            // 自动选择第一个数值列
             for(let h of headers) {
                 let firstVal = json[0][h];
                 if(typeof firstVal === "number" || (!isNaN(parseFloat(firstVal)) && isFinite(firstVal))) {
@@ -603,7 +630,6 @@
         }
         if(data.length < 5) { alert("有效扭矩数据不足5个，无法生成SPC图"); return; }
         rawTorqueData = [...data];
-        // 列切换后触发提示及可能的规格限推荐
         onTorqueColumnChanged();
     }
 
@@ -611,6 +637,14 @@
     document.getElementById("applyBtn").addEventListener("click", () => {
         if(rawTorqueData.length === 0 && window.rawJson) extractTorqueData();
         else performSPCAnalysis();
+    });
+    // 强制重绘：直接调用performSPCAnalysis重新计算并绘制
+    document.getElementById("forceRedrawBtn").addEventListener("click", () => {
+        if (rawTorqueData.length === 0) {
+            alert("暂无有效数据，请先上传扭矩文件");
+            return;
+        }
+        performSPCAnalysis();
     });
     document.getElementById("chartType").addEventListener("change", (e) => {
         currentChartType = e.target.value;
@@ -629,7 +663,6 @@
         let maxVal = Math.max(...seriesData, UCL);
         let range = maxVal - minVal;
         let candidateMin = minVal - range * extraMargin;
-        // 扭矩一般不会为负，但如果计算为负且数据全正，则调整为0或稍低
         if (candidateMin < 0 && minVal > 0) candidateMin = Math.max(0, minVal - range * 0.05);
         return candidateMin;
     }
@@ -679,8 +712,10 @@
         }
         updateKPIAndCPK(data, meanX);
         updateAnomalyTable(anomaliesX, anomaliesMR, currentChartType);
-        drawControlChart1(data, UCL_X, meanX, LCL_X, anomaliesX, "单值控制图 (I Chart)", true);
-        drawControlChart2(mr, UCL_MR, meanMR, LCL_MR, anomaliesMR, "移动极差控制图 (MR Chart)");
+        safeRender(() => {
+            drawControlChart1(data, UCL_X, meanX, LCL_X, anomaliesX, "单值控制图 (I Chart)", true);
+            drawControlChart2(mr, UCL_MR, meanMR, LCL_MR, anomaliesMR, "移动极差控制图 (MR Chart)");
+        });
         currentIChartData = {data, UCL:UCL_X, CL:meanX, LCL:LCL_X, anomalies:anomaliesX, mrData:mr, mrUCL:UCL_MR, mrCL:meanMR, mrLCL:LCL_MR, mrAnomalies:anomaliesMR};
     }
 
@@ -719,8 +754,10 @@
             }
         }
         updateKPIAndCPK(data, meanOfMeans);
-        drawControlChart1(means, UCL_Xbar, meanOfMeans, LCL_Xbar, anomaliesX, "均值控制图 (Xbar Chart)", false);
-        drawControlChart2(ranges, UCL_R, meanRange, LCL_R, anomaliesR, "极差控制图 (R Chart)");
+        safeRender(() => {
+            drawControlChart1(means, UCL_Xbar, meanOfMeans, LCL_Xbar, anomaliesX, "均值控制图 (Xbar Chart)", false);
+            drawControlChart2(ranges, UCL_R, meanRange, LCL_R, anomaliesR, "极差控制图 (R Chart)");
+        });
         updateAnomalyTable(anomaliesX, anomaliesR, "xbarR");
         let advice = generateImprovementAdvice(anomaliesX.concat(anomaliesR), "xbarR");
         document.getElementById("improvementAdvice").innerHTML = `💡 改善策略指引：${advice}`;
@@ -750,18 +787,17 @@
         document.getElementById("statAnomaly").innerText = "计算中";
     }
 
-    // 优化折线图：增加动态y轴最小值使图表美观
+    // 优化后的绘图函数：调整图例与绘图区的距离，避免重叠
     function drawControlChart1(series, UCL, CL, LCL, anomalies, title, isIChart = true) {
         if(chart1Instance) chart1Instance.dispose();
         const dom = document.getElementById("chart1");
         chart1Instance = echarts.init(dom);
         let anomalyPoints = anomalies.map(a=> ({value:a.val, xAxis:a.idx+1}));
-        // 计算智能y轴最小值 (让数据波动更明显，避免从0开始大段空白)
         let yMin = getSmartYMin(series, LCL, UCL, 0.12);
         let option = {
-            title: { text: title, left: 'center', top: 5, textStyle: { fontSize: 13, color: '#b9f2ff' } },
+            title: { text: title, left: 'center', top: 8, textStyle: { fontSize: 13, color: '#b9f2ff' } },
             tooltip: { trigger: 'axis' },
-            grid: { top: 50, bottom: 25, left: 55, right: 35, containLabel: true },
+            grid: { top: 70, bottom: 25, left: 55, right: 35, containLabel: true }, // 增加top值，为图例腾出空间
             xAxis: { type: 'category', name: '样本序号/子组序号', nameLocation: 'middle', nameGap: 30, axisLabel: { color: '#cce7ff' }, axisLine: { lineStyle: { color: '#0ff' } } },
             yAxis: { type: 'value', name: '扭矩值 (Nm)', nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#cce7ff' }, splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } }, min: yMin },
             series: [
@@ -771,7 +807,7 @@
                 { name: 'LCL', type: 'line', data: Array(series.length).fill(LCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
                 { name: '异常点', type: 'scatter', data: anomalyPoints.map(p=>[p.xAxis-1, p.value]), symbolSize: 10, itemStyle: { color: '#ff6666', borderColor: '#ffffff', borderWidth: 1 } }
             ],
-            legend: { data: ['测量值', 'UCL', 'CL', 'LCL', '异常点'], left: 'left', top: 30, textStyle: { color: '#d9f0ff' }, itemWidth: 25, itemHeight: 12 },
+            legend: { data: ['测量值', 'UCL', 'CL', 'LCL', '异常点'], left: 'left', top: 40, textStyle: { color: '#d9f0ff' }, itemWidth: 25, itemHeight: 12 }, // 图例下移，避免与标题重叠
             backgroundColor: 'transparent'
         };
         chart1Instance.setOption(option);
@@ -784,9 +820,9 @@
         chart2Instance = echarts.init(dom);
         let anomalyPoints = anomalies.map(a=> ({value:a.val, xAxis:a.idx+1}));
         let option = {
-            title: { text: title, left: 'center', top: 5, textStyle: { fontSize: 13, color: '#b9f2ff' } },
+            title: { text: title, left: 'center', top: 8, textStyle: { fontSize: 13, color: '#b9f2ff' } },
             tooltip: { trigger: 'axis' },
-            grid: { top: 50, bottom: 20, left: 55, right: 35, containLabel: true },
+            grid: { top: 70, bottom: 20, left: 55, right: 35, containLabel: true }, // 同样增加top
             xAxis: { type: 'category', name: '样本/子组序号', nameLocation: 'middle', nameGap: 30, axisLabel: { color: '#cce7ff' } },
             yAxis: { type: 'value', name: '极差/移动极差', nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#cce7ff' }, splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } } },
             series: [
@@ -796,7 +832,7 @@
                 { name: 'LCL', type: 'line', data: Array(series.length).fill(LCL||0), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
                 { name: '异常点', type: 'scatter', data: anomalyPoints.map(p=>[p.xAxis-1, p.value]), symbolSize: 10, itemStyle: { color: '#ff8888' } }
             ],
-            legend: { data: ['极差值', 'UCL', 'CL', 'LCL', '异常点'], left: 'left', top: 30, textStyle: { color: '#d9f0ff' } },
+            legend: { data: ['极差值', 'UCL', 'CL', 'LCL', '异常点'], left: 'left', top: 40, textStyle: { color: '#d9f0ff' } },
             backgroundColor: 'transparent'
         };
         chart2Instance.setOption(option);
@@ -861,7 +897,7 @@
         
         const reportHtml = `
         <!DOCTYPE html>
-        <html><head><meta charset="UTF-8"><title>扭矩SPC质量分析报告_蓝芯科技</title>
+        <html><head><meta charset="UTF-8"><title>扭矩SPC质量分析报告</title>
         <style>
             body{font-family: 'Segoe UI', Arial, sans-serif; background: #ffffff; color: #1e293b; padding: 40px; margin:0;}
             h1{color: #0a6c8c; border-left: 6px solid #0a6c8c; padding-left: 20px;}
@@ -894,14 +930,20 @@
         saveAs(blob, `Torque_SPC_Report_${new Date().toISOString().slice(0,19)}.doc`);
     });
 
-    // 演示数据初始化
-    (function initDemoData() {
+    // 窗口大小变化时重绘图表，保持比例
+    window.addEventListener("resize", () => {
+        if (chart1Instance) chart1Instance.resize();
+        if (chart2Instance) chart2Instance.resize();
+    });
+
+    // 演示数据初始化，并确保 DOM 完全加载
+    window.addEventListener("load", () => {
         let demo = [68.2, 69.1, 70.3, 71.5, 70.8, 69.6, 70.1, 72.0, 73.5, 72.2, 68.9, 70.4, 69.7, 71.2, 70.5, 69.8, 74.1, 70.9, 71.4, 70.0];
         rawTorqueData = demo;
         document.getElementById("fileNameDisplay").innerText = "内置演示数据 (20组扭矩)";
         window.rawJson = null;
         performSPCAnalysis();
-    })();
+    });
 </script>
 </body>
 </html>
