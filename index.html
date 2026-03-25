@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>总装扭矩SPC智能管理平台</title>
-    <!-- ECharts 多CDN备选，确保加载成功率 -->
+    <!-- ECharts 多CDN备选 -->
     <script>
         (function loadECharts() {
             var echartsSrc = [
@@ -15,50 +15,41 @@
             var index = 0;
             function tryLoad() {
                 if (index >= echartsSrc.length) {
-                    console.error('所有ECharts源加载失败，请检查网络');
-                    document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:#ff4444;color:white;padding:10px;text-align:center;">图表库加载失败，请刷新页面重试或检查网络连接。</div>';
+                    console.error('所有ECharts源加载失败');
+                    document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:#ff4444;color:white;padding:10px;text-align:center;">图表库加载失败，请刷新页面重试。</div>';
                     return;
                 }
                 var script = document.createElement('script');
                 script.src = echartsSrc[index];
-                script.onload = function() {
-                    window.echartsLoaded = true;
-                };
-                script.onerror = function() {
-                    index++;
-                    tryLoad();
-                };
+                script.onload = function() { window.echartsLoaded = true; };
+                script.onerror = function() { index++; tryLoad(); };
                 document.head.appendChild(script);
             }
             tryLoad();
         })();
     </script>
-    <!-- SheetJS (XLSX) 用于导入Excel/CSV -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <!-- 辅助库: 文件保存 -->
     <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: linear-gradient(145deg, #0a1128 0%, #0b1a3a 100%);
-            font-family: 'Inter', 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Roboto', sans-serif;
-            padding: 28px 32px;
+            font-family: 'Inter', 'Segoe UI', 'Poppins', system-ui, sans-serif;
+            padding: 0;
             color: #eef5ff;
             min-height: 100vh;
         }
-
         .dashboard-container {
             max-width: 1600px;
             margin: 0 auto;
+            padding: 28px 32px;
         }
-
+        /* 顶部固定区域 */
         .hero-section {
-            background: rgba(10, 25, 55, 0.65);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(10, 25, 55, 0.85);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(0, 255, 255, 0.2);
             border-radius: 36px;
@@ -69,735 +60,336 @@
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
+            transition: all 0.2s;
         }
-        .title h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            background: linear-gradient(135deg, #fff, #7dd3fc);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            letter-spacing: -0.3px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .title p {
-            font-size: 0.85rem;
-            opacity: 0.8;
-            margin-top: 8px;
-            color: #b9e2ff;
-        }
-        .badge-group {
-            display: flex;
-            gap: 12px;
-        }
-        .badge {
-            background: rgba(0, 255, 255, 0.15);
-            backdrop-filter: blur(8px);
-            padding: 6px 16px;
-            border-radius: 60px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            color: #a3f5ff;
-        }
-
-        .main-grid {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 24px;
-        }
-
+        .title h1 { font-size: 1.8rem; font-weight: 600; background: linear-gradient(135deg, #fff, #7dd3fc); -webkit-background-clip: text; background-clip: text; color: transparent; display: flex; align-items: center; gap: 12px; }
+        .title p { font-size: 0.85rem; opacity: 0.8; margin-top: 8px; color: #b9e2ff; }
+        .badge-group { display: flex; gap: 12px; }
+        .badge { background: rgba(0, 255, 255, 0.15); backdrop-filter: blur(8px); padding: 6px 16px; border-radius: 60px; font-size: 0.75rem; border: 1px solid rgba(0, 255, 255, 0.3); color: #a3f5ff; }
+        .main-grid { display: grid; grid-template-columns: 360px 1fr; gap: 24px; }
         .control-panel {
             background: rgba(8, 20, 48, 0.7);
             backdrop-filter: blur(12px);
             border-radius: 32px;
             border: 1px solid rgba(0, 255, 255, 0.2);
             padding: 22px;
-            transition: all 0.2s;
             height: fit-content;
             box-shadow: 0 8px 20px rgba(0,0,0,0.3);
         }
-        .section-title {
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-bottom: 18px;
-            border-left: 4px solid #0ff;
-            padding-left: 12px;
-            color: #caf0ff;
-            text-shadow: 0 0 4px rgba(0,255,255,0.3);
-        }
-        .upload-area {
-            background: rgba(0, 20, 50, 0.5);
-            border: 1.5px dashed rgba(0, 255, 255, 0.5);
-            border-radius: 24px;
-            padding: 20px 12px;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-            margin-bottom: 24px;
-        }
-        .upload-area.drag-over {
-            border-color: #0ff;
-            background: rgba(0, 255, 255, 0.1);
-            box-shadow: 0 0 12px rgba(0,255,255,0.2);
-        }
-        .upload-icon {
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
-        .file-name {
-            font-size: 0.75rem;
-            color: #aad0ff;
-            margin-top: 6px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            font-weight: 500;
-            font-size: 0.85rem;
-            display: block;
-            margin-bottom: 6px;
-            color: #cdf2ff;
-        }
-        select, input {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid rgba(0, 255, 255, 0.4);
-            border-radius: 24px;
-            font-size: 0.85rem;
-            background: rgba(2, 15, 35, 0.8);
-            color: #fff;
-            transition: 0.2s;
-            outline: none;
-        }
-        select:focus, input:focus {
-            border-color: #0ff;
-            box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.3);
-        }
-        button {
-            background: linear-gradient(95deg, #0a6c8c, #0b4f6e);
-            border: none;
-            padding: 10px 16px;
-            border-radius: 40px;
-            font-weight: 600;
-            color: white;
-            cursor: pointer;
-            width: 100%;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-            margin-top: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        button.primary {
-            background: linear-gradient(95deg, #0d8cb0, #0b5f7a);
-        }
-        button.secondary {
-            background: linear-gradient(95deg, #e67e22, #c2410c);
-            margin-top: 12px;
-        }
-        button.warning {
-            background: linear-gradient(95deg, #2c7da0, #1f5e7a);
-            margin-top: 8px;
-        }
-        button:hover {
-            transform: translateY(-2px);
-            filter: brightness(1.05);
-            box-shadow: 0 8px 18px rgba(0,0,0,0.3);
-        }
-        .device-info {
-            background: rgba(0, 30, 60, 0.6);
-            border-radius: 24px;
-            padding: 14px;
-            margin-top: 20px;
-            border: 1px solid rgba(0, 255, 255, 0.2);
-        }
-        .device-info .field-row {
-            margin-bottom: 8px;
-        }
-        .device-info .field-label {
-            font-size: 0.7rem;
-            color: #8bcbff;
-            margin-bottom: 2px;
-        }
-        .editable-input {
-            background: rgba(2, 15, 35, 0.8);
-            border: 1px solid rgba(0, 255, 255, 0.4);
-            border-radius: 16px;
-            padding: 4px 8px;
-            width: 100%;
-            font-size: 0.75rem;
-            color: #eef5ff;
-            margin-top: 2px;
-            margin-bottom: 6px;
-        }
-
-        .content-area {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-        .chart-card {
-            background: rgba(8, 20, 48, 0.7);
-            backdrop-filter: blur(12px);
-            border-radius: 32px;
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            padding: 20px;
-            transition: all 0.2s;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-        }
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-        .chart-title {
-            font-weight: 700;
-            font-size: 1rem;
-            color: #b9f2ff;
-            letter-spacing: 0.3px;
-        }
-        .stats-row {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-        }
-        .stat-card {
-            background: rgba(0, 30, 60, 0.65);
-            backdrop-filter: blur(8px);
-            border-radius: 28px;
-            padding: 12px 18px;
-            flex: 1;
-            min-width: 100px;
-            text-align: center;
-            border: 1px solid rgba(0, 255, 255, 0.3);
-        }
-        .stat-label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: #8bcbff;
-        }
-        .stat-value {
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: #f0fcff;
-            text-shadow: 0 0 8px rgba(0,255,255,0.3);
-        }
-        .spec-badge {
-            font-size: 0.7rem;
-            color: #7dd3fc;
-            margin-top: 4px;
-        }
-        .anomaly-table {
-            margin-top: 12px;
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.75rem;
-        }
-        th, td {
-            padding: 8px 6px;
-            text-align: left;
-            border-bottom: 1px solid rgba(0, 255, 255, 0.2);
-            color: #e2f0ff;
-        }
-        th {
-            background: rgba(0, 80, 120, 0.4);
-            font-weight: 600;
-            color: #c3ffff;
-        }
-        .advice-box {
-            background: rgba(0, 40, 60, 0.6);
-            border-left: 4px solid #0ff;
-            padding: 14px 16px;
-            border-radius: 20px;
-            margin-top: 16px;
-            color: #d3f0ff;
-        }
-        hr {
-            margin: 16px 0;
-            border-color: rgba(0, 255, 255, 0.2);
-        }
-        @media (max-width: 900px) {
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
-            body {
-                padding: 16px;
-            }
-        }
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0a1a2f;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #0ff;
-            border-radius: 10px;
-        }
-        .echarts-error {
-            background: rgba(255, 80, 80, 0.2);
-            border: 1px solid #ff6666;
-            border-radius: 16px;
-            padding: 20px;
-            text-align: center;
-            color: #ffaaaa;
-        }
-        .cpk-grade {
-            font-size: 0.75rem;
-            margin-top: 6px;
-            padding: 4px 8px;
-            border-radius: 20px;
-            display: inline-block;
-            background: rgba(0,0,0,0.4);
-        }
+        .section-title { font-weight: 600; font-size: 1.1rem; margin-bottom: 18px; border-left: 4px solid #0ff; padding-left: 12px; color: #caf0ff; }
+        .upload-area { background: rgba(0, 20, 50, 0.5); border: 1.5px dashed rgba(0, 255, 255, 0.5); border-radius: 24px; padding: 20px 12px; text-align: center; cursor: pointer; transition: 0.2s; margin-bottom: 24px; }
+        .upload-area.drag-over { border-color: #0ff; background: rgba(0, 255, 255, 0.1); }
+        .file-name { font-size: 0.75rem; color: #aad0ff; margin-top: 6px; }
+        .form-group { margin-bottom: 20px; }
+        label { font-weight: 500; font-size: 0.85rem; display: block; margin-bottom: 6px; color: #cdf2ff; }
+        select, input { width: 100%; padding: 10px 14px; border: 1px solid rgba(0, 255, 255, 0.4); border-radius: 24px; font-size: 0.85rem; background: rgba(2, 15, 35, 0.8); color: #fff; outline: none; }
+        select:focus, input:focus { border-color: #0ff; box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.3); }
+        button { background: linear-gradient(95deg, #0a6c8c, #0b4f6e); border: none; padding: 10px 16px; border-radius: 40px; font-weight: 600; color: white; cursor: pointer; width: 100%; font-size: 0.85rem; transition: all 0.2s; margin-top: 8px; }
+        button.primary { background: linear-gradient(95deg, #0d8cb0, #0b5f7a); }
+        button.secondary { background: linear-gradient(95deg, #e67e22, #c2410c); }
+        /* 高大上数据量按钮组 */
+        .data-range-group { background: rgba(0, 30, 60, 0.5); border-radius: 24px; padding: 12px; margin-bottom: 20px; border: 1px solid rgba(0,255,255,0.2); }
+        .range-buttons { display: flex; gap: 12px; margin-bottom: 16px; }
+        .range-btn { flex: 1; text-align: center; padding: 8px 0; border-radius: 40px; background: rgba(0, 20, 40, 0.7); border: 1px solid rgba(0, 255, 255, 0.3); color: #bbddff; cursor: pointer; transition: all 0.2s; font-weight: 500; font-size: 0.85rem; backdrop-filter: blur(4px); }
+        .range-btn.active { background: linear-gradient(95deg, #0d8cb0, #0b5f7a); border-color: #0ff; color: white; box-shadow: 0 0 10px rgba(0,255,255,0.3); }
+        .range-btn:hover:not(.active) { background: rgba(0, 150, 200, 0.3); border-color: #0ff; }
+        .lastn-input-group { display: flex; align-items: center; gap: 10px; }
+        .lastn-input-group input { flex: 1; margin-top: 0; }
+        .lastn-input-group label { margin-bottom: 0; white-space: nowrap; font-size: 0.8rem; }
+        .device-info { background: rgba(0, 30, 60, 0.6); border-radius: 24px; padding: 14px; margin-top: 20px; border: 1px solid rgba(0, 255, 255, 0.2); }
+        .editable-input { background: rgba(2, 15, 35, 0.8); border: 1px solid rgba(0, 255, 255, 0.4); border-radius: 16px; padding: 4px 8px; width: 100%; font-size: 0.75rem; color: #eef5ff; margin-top: 2px; margin-bottom: 6px; }
+        .content-area { display: flex; flex-direction: column; gap: 24px; }
+        .chart-card { background: rgba(8, 20, 48, 0.7); backdrop-filter: blur(12px); border-radius: 32px; border: 1px solid rgba(0, 255, 255, 0.2); padding: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+        .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+        .stat-card { background: rgba(0, 30, 60, 0.65); backdrop-filter: blur(8px); border-radius: 28px; padding: 12px 18px; flex: 1; min-width: 100px; text-align: center; border: 1px solid rgba(0, 255, 255, 0.3); }
+        .stat-label { font-size: 0.7rem; text-transform: uppercase; color: #8bcbff; }
+        .stat-value { font-size: 1.6rem; font-weight: 700; color: #f0fcff; text-shadow: 0 0 8px rgba(0,255,255,0.3); }
+        .spec-badge { font-size: 0.7rem; color: #7dd3fc; margin-top: 4px; }
+        .anomaly-table { margin-top: 12px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid rgba(0, 255, 255, 0.2); color: #e2f0ff; }
+        th { background: rgba(0, 80, 120, 0.4); color: #c3ffff; }
+        .advice-box { background: rgba(0, 40, 60, 0.6); border-left: 4px solid #0ff; padding: 14px 16px; border-radius: 20px; margin-top: 16px; }
         .grade-excellent { color: #6fef6f; border-left: 3px solid #2ecc71; padding-left: 8px; }
         .grade-warning { color: #ffb347; border-left: 3px solid #f39c12; padding-left: 8px; }
         .grade-danger { color: #ff7b7b; border-left: 3px solid #e74c3c; padding-left: 8px; }
+        @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } .dashboard-container { padding: 16px; } }
+        ::-webkit-scrollbar { width: 6px; height: 6px; background: #0a1a2f; }
+        ::-webkit-scrollbar-thumb { background: #0ff; border-radius: 10px; }
+        .echarts-error { background: rgba(255, 80, 80, 0.2); border: 1px solid #ff6666; border-radius: 16px; padding: 20px; text-align: center; color: #ffaaaa; }
     </style>
 </head>
 <body>
 <div class="dashboard-container">
     <div class="hero-section">
-        <div class="title">
-            <h1>⚡ 总装扭矩智能管理平台 | SPC </h1>
-            <p>实时监控 · 扭矩双向追溯 · 过程能力分析 · 智能改善闭环</p>
-        </div>
-        <div class="badge-group">
-            <div class="badge">📡 实时数据流</div>
-            <div class="badge">🔧 设备联网</div>
-            <div class="badge">📈 AI报告</div>
-        </div>
+        <div class="title"><h1>⚡ 总装扭矩智能管理平台 | SPC</h1><p>实时监控 · 扭矩双向追溯 · 过程能力分析 · 智能改善闭环</p></div>
+        <div class="badge-group"><div class="badge">📡 实时数据流</div><div class="badge">🔧 设备联网</div><div class="badge">📈 AI报告</div></div>
     </div>
-
     <div class="main-grid">
         <div class="control-panel">
             <div class="section-title">📂 数据源 & 控制策略</div>
-            <div id="uploadZone" class="upload-area">
-                <div class="upload-icon">📎💾</div>
-                <div>点击或拖拽上传扭矩文件</div>
-                <div style="font-size:11px; color:#7cb9e8;">支持 .xlsx, .xls, .csv (数值列)</div>
-                <div id="fileNameDisplay" class="file-name">未选择文件</div>
-                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;" />
+            <div id="uploadZone" class="upload-area"><div class="upload-icon">📎💾</div><div>点击或拖拽上传扭矩文件 (行格式)</div><div style="font-size:11px;">每行：第一列扭矩名，后续为扭矩值(Nm)</div><div id="fileNameDisplay" class="file-name">未选择文件</div><input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;" /></div>
+            <div class="form-group"><label>🔧 扭矩类型 (行名)</label><select id="columnSelect"></select><div style="font-size:11px; margin-top:4px;">* 每一行代表一组螺栓规格数据</div></div>
+            <!-- 高大上数据量按钮组 -->
+            <div class="data-range-group">
+                <div class="section-title" style="margin-bottom:12px;">📊 分析数据量</div>
+                <div class="range-buttons">
+                    <div id="rangeAllBtn" class="range-btn active">全部样本</div>
+                    <div id="rangeLastNBtn" class="range-btn">最新 N 个样本</div>
+                </div>
+                <div id="lastNPanel" class="lastn-input-group">
+                    <label>📌 最新样本数</label>
+                    <input type="number" id="lastNCount" value="30" min="1" step="1">
+                </div>
+                <div style="font-size:11px; margin-top:8px;">* 从后往前取最新数据，若超出总数将提示</div>
             </div>
-            <div class="form-group">
-                <label>🎯 扭矩值列名</label>
-                <select id="columnSelect"></select>
-                <div style="font-size:11px; margin-top:4px; color:#7aaee0;">* 请选择数值型扭矩(Nm)列</div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 16px;">📏 设计规格限 (LSL / USL)</div>
-            <div class="form-group">
-                <label>下规格限 LSL (Nm)</label>
-                <input type="number" id="lslInput" step="0.1" value="65.0" placeholder="例如: 65.0">
-            </div>
-            <div class="form-group">
-                <label>上规格限 USL (Nm)</label>
-                <input type="number" id="uslInput" step="0.1" value="75.0" placeholder="例如: 75.0">
-            </div>
-            <div class="spec-badge" style="margin-bottom: 16px;">注：Cpk基于LSL / USL计算，请确保LSL < USL。</div>
-
-            <div class="form-group">
-                <label>📊 控制图类型</label>
-                <select id="chartType">
-                    <option value="xmr">I-MR (单值-移动极差图)</option>
-                    <option value="xbarR">Xbar-R (均值-极差图)</option>
-                </select>
-            </div>
-            <div class="form-group" id="subgroupGroup">
-                <label>📦 子组大小 (Xbar-R)</label>
-                <input type="number" id="subgroupSize" value="5" min="2" max="20" step="1">
-            </div>
-            <div class="form-group">
-                <label>⚙️ 控制策略 / 判异准则</label>
-                <select id="controlRule">
-                    <option value="basic">3σ 控制限 + 超限异常点</option>
-                    <option value="full">增强判异 (超限+连续7点同侧)</option>
-                </select>
-            </div>
+            <div class="section-title" style="margin-top: 8px;">📏 设计规格限 (LSL / USL)</div>
+            <div class="form-group"><label>下规格限 LSL (Nm)</label><input type="number" id="lslInput" step="0.1" value="65.0"></div>
+            <div class="form-group"><label>上规格限 USL (Nm)</label><input type="number" id="uslInput" step="0.1" value="75.0"></div>
+            <div class="form-group"><label>📊 控制图类型</label><select id="chartType"><option value="xmr">I-MR (单值-移动极差图)</option><option value="xbarR">Xbar-R (均值-极差图)</option></select></div>
+            <div class="form-group" id="subgroupGroup"><label>📦 子组大小 (Xbar-R)</label><input type="number" id="subgroupSize" value="5" min="2" max="20"></div>
+            <div class="form-group"><label>⚙️ 控制策略 / 判异准则</label><select id="controlRule"><option value="basic">3σ 控制限 + 超限异常点</option><option value="full">增强判异 (超限+连续7点同侧)</option></select></div>
             <button id="applyBtn" class="primary">🔄 刷新SPC分析</button>
             <button id="forceRedrawBtn" class="warning">🖌️ 强制重绘图表</button>
             <button id="exportReportBtn" class="secondary">📄 导出Word分析报告</button>
-            
-            <div class="device-info">
-                <div style="font-weight:600; margin-bottom:8px;">🔌 在线扭矩设备追溯 (可编辑)</div>
-                <div class="field-row">
-                    <div class="field-label">设备ID</div>
-                    <input type="text" id="deviceId" class="editable-input" value="TOR-ATL-0824 / 无线数显">
-                </div>
-                <div class="field-row">
-                    <div class="field-label">校准状态</div>
-                    <input type="text" id="calibStatus" class="editable-input" value="✅ 有效 (2025-08-09)">
-                </div>
-                <div class="field-row">
-                    <div class="field-label">扭矩量程 & 精度</div>
-                    <input type="text" id="torqueRange" class="editable-input" value="20-200 Nm · 精度 ±1.2%">
-                </div>
-                <div class="field-row">
-                    <div class="field-label">最近批次 / 追溯码</div>
-                    <input type="text" id="batchInfo" class="editable-input" value="#BATCH-2409 · 追溯码: TQ-2409-421">
-                </div>
+            <div class="device-info"><div style="font-weight:600;">🔌 在线扭矩设备追溯 (可编辑)</div>
+                <div><div class="field-label">设备ID</div><input type="text" id="deviceId" class="editable-input" value="TOR-ATL-0824 / 无线数显"></div>
+                <div><div class="field-label">校准状态</div><input type="text" id="calibStatus" class="editable-input" value="✅ 有效 (2025-08-09)"></div>
+                <div><div class="field-label">扭矩量程 & 精度</div><input type="text" id="torqueRange" class="editable-input" value="20-200 Nm · 精度 ±1.2%"></div>
+                <div><div class="field-label">最近批次 / 追溯码</div><input type="text" id="batchInfo" class="editable-input" value="#BATCH-2409 · 追溯码: TQ-2409-421"></div>
                 <p style="color:#0ff; margin-top:8px;">📡 双向数据同步 | 扭矩下发/上传已激活</p>
             </div>
         </div>
-
         <div class="content-area">
             <div class="stats-row" id="kpiContainer">
-                <div class="stat-card"><div class="stat-label">样本容量(N)</div><div class="stat-value" id="statN">-</div></div>
+                <div class="stat-card"><div class="stat-label">分析样本(N)</div><div class="stat-value" id="statN">-</div></div>
                 <div class="stat-card"><div class="stat-label">均值(Mean)</div><div class="stat-value" id="statMean">-</div></div>
                 <div class="stat-card"><div class="stat-label">标准差(σ)</div><div class="stat-value" id="statStd">-</div></div>
                 <div class="stat-card"><div class="stat-label">Cpk (能力)</div><div class="stat-value" id="statCpk">-</div></div>
                 <div class="stat-card"><div class="stat-label">异常点数</div><div class="stat-value" id="statAnomaly">0</div></div>
             </div>
-            <div id="specDisplay" style="text-align:center; margin-top:-10px; margin-bottom:10px; font-size:0.7rem; color:#8bcbff;"></div>
-            <!-- CPK判定专用展示区 -->
-            <div id="cpkJudgmentArea" style="text-align:center; margin-top:-5px; margin-bottom:10px; font-size:0.85rem; font-weight:500; background:rgba(0,30,60,0.5); border-radius:24px; padding:6px 12px; width:fit-content; margin-left:auto; margin-right:auto;"></div>
-
-            <div class="chart-card">
-                <div class="chart-header">
-                    <span class="chart-title" id="mainChartTitle">📈 I-MR 单值控制图</span>
-                    <span style="font-size:11px; color:#69c2ff;">● 数据点 &nbsp; ● 异常点 &nbsp; —— 控制限</span>
-                </div>
-                <div id="chart1" style="height: 290px; width: 100%;"></div>
-                <div id="chart1-error" style="display:none;" class="echarts-error"></div>
-            </div>
-            <div class="chart-card">
-                <div class="chart-header">
-                    <span class="chart-title" id="secondChartTitle">📉 移动极差控制图 (MR)</span>
-                </div>
-                <div id="chart2" style="height: 250px; width: 100%;"></div>
-                <div id="chart2-error" style="display:none;" class="echarts-error"></div>
-            </div>
-
-            <div class="chart-card">
-                <div class="chart-title">⚠️ 异常诊断 & 智能改善方向</div>
-                <div id="anomalyList" class="anomaly-table">
-                    <table style="width:100%">
-                        <thead><tr><th>序号/组号</th><th>异常值</th><th>违反规则</th><th>建议措施</th></tr></thead>
-                        <tbody><tr><td colspan="4">暂无异常，过程稳定或等待数据</td></tr></tbody>
-                    </table>
-                </div>
-                <div id="improvementAdvice" class="advice-box">
-                    💡 改善策略指引：基于SPC判异结果，系统将智能生成现场改善方向。
-                </div>
-            </div>
+            <div id="specDisplay" style="text-align:center; font-size:0.7rem; color:#8bcbff;"></div>
+            <div id="cpkJudgmentArea" style="text-align:center; margin-bottom:10px; font-size:0.85rem; background:rgba(0,30,60,0.5); border-radius:24px; padding:6px 12px; width:fit-content; margin-left:auto; margin-right:auto;"></div>
+            <div class="chart-card"><div class="chart-header"><span class="chart-title" id="mainChartTitle">📈 I-MR 单值控制图</span><span style="font-size:11px; color:#69c2ff;">● 数据点 &nbsp; ● 异常点 &nbsp; —— 控制限</span></div><div id="chart1" style="height: 290px; width: 100%;"></div><div id="chart1-error" style="display:none;" class="echarts-error"></div></div>
+            <div class="chart-card"><div class="chart-header"><span class="chart-title" id="secondChartTitle">📉 移动极差控制图 (MR)</span></div><div id="chart2" style="height: 250px; width: 100%;"></div><div id="chart2-error" style="display:none;" class="echarts-error"></div></div>
+            <div class="chart-card"><div class="chart-title">⚠️ 异常诊断 & 智能改善方向</div><div id="anomalyList" class="anomaly-table"><table><thead><tr><th>序号/组号</th><th>异常值</th><th>违反规则</th><th>建议措施</th></tr></thead><tbody><tr><td colspan="4">暂无数据，请导入扭矩文件</td></tr></tbody></table></div><div id="improvementAdvice" class="advice-box">💡 改善策略指引：基于SPC判异结果，系统将智能生成现场改善方向。</div></div>
         </div>
     </div>
-           
-    <footer style="text-align: center;">
-        <p>总装扭矩SPC智能管理平台 v2.2 &copy; 2026/3/24 | SPC自动化 | 规格限直输模式 | 图表稳定性增强版</p>
-        <p style="font-size: 0.85rem; margin-top: 5px;">优化：绘图区水平居中、移动极差图容错、多CDN备选</p>
+    <footer style="text-align:center; margin-top:20px;">
+        <p>总装扭矩SPC智能管理平台 v3.1 | 行数据格式 | 数据量灵活筛选 | 顶部固定区域</p>
         <p style="font-size: 0.85rem; margin-top: 5px;">提示：数据仅在浏览器中处理，不会上传到服务器</p>
     </footer>
 </div>
 
 <script>
-    // 等待ECharts加载完成的Promise
-    function waitForECharts() {
-        return new Promise((resolve, reject) => {
-            if (window.echarts && typeof window.echarts.init === 'function') {
-                resolve(window.echarts);
-                return;
+    // 全局变量
+    let torqueGroups = [];
+    let currentGroupName = null;
+    let chart1Instance = null, chart2Instance = null;
+    let currentAnalyzedData = [];      // 当前用于分析的数据(截取后)
+    let totalRawData = [];              // 当前扭矩类型原始完整数据
+    let currentDataRangeMode = "all";   // "all" or "lastN"
+    
+    function waitForECharts() { return new Promise((resolve, reject) => { if(window.echarts && typeof window.echarts.init === 'function') resolve(window.echarts); const iv = setInterval(()=>{ if(window.echarts && typeof window.echarts.init === 'function'){ clearInterval(iv); resolve(window.echarts); } },100); setTimeout(()=>{ clearInterval(iv); reject(new Error('ECharts超时')); },8000); }); }
+    function getSpecLimits() { const lsl=parseFloat(document.getElementById("lslInput").value), usl=parseFloat(document.getElementById("uslInput").value); if(isNaN(lsl)||isNaN(usl)||lsl>=usl) return null; return {LSL:lsl, USL:usl}; }
+    function calculateCPK(mean, std, LSL, USL){ if(std===0) return Infinity; return Math.min((USL-mean)/(3*std), (mean-LSL)/(3*std)); }
+    function getCpkJudgment(cpk){ if(cpk===Infinity||isNaN(cpk)) return {text:"⚠️ 无法判定 (规格限无效)", className:"grade-warning"}; if(cpk>=1.33) return {text:`✅ Cpk = ${cpk.toFixed(3)} ≥ 1.33，过程能力充分`, className:"grade-excellent"}; if(cpk>=1.0) return {text:`⚠️ Cpk = ${cpk.toFixed(3)} (1.0 ≤ Cpk ＜ 1.33)，能力尚可`, className:"grade-warning"}; return {text:`❌ Cpk = ${cpk.toFixed(3)} ＜ 1.0，能力不足！`, className:"grade-danger"}; }
+    function updateCpkJudgmentDisplay(cpk){ const container=document.getElementById("cpkJudgmentArea"); if(!container) return; let j=getCpkJudgment(cpk); container.innerHTML=`<span class="${j.className}">${j.text}</span>`; }
+    function autoRecommendSpecLimits(data){ if(!data||data.length<2) return null; const mean=data.reduce((a,b)=>a+b,0)/data.length; const variance=data.reduce((s,v)=>s+Math.pow(v-mean,2),0)/data.length; const std=Math.sqrt(variance); return {LSL:parseFloat((mean-3*std).toFixed(1)), USL:parseFloat((mean+3*std).toFixed(1))}; }
+    
+    // 获取截取后的数据 (依据当前模式)
+    function getFilteredData() {
+        if(!totalRawData || totalRawData.length===0) return [];
+        if(currentDataRangeMode === "all") return [...totalRawData];
+        // lastN模式
+        let n = parseInt(document.getElementById("lastNCount").value);
+        if(isNaN(n) || n<1) n = 10;
+        if(n >= totalRawData.length) {
+            // 弹出提示是否使用全部样本
+            const userConfirm = confirm(`指定样本数 ${n} 大于实际总样本数 ${totalRawData.length}，是否使用全部样本进行分析？`);
+            if(userConfirm) {
+                return [...totalRawData];
+            } else {
+                // 用户取消，返回空数组（不执行分析）
+                return null;
             }
-            const checkInterval = setInterval(() => {
-                if (window.echarts && typeof window.echarts.init === 'function') {
-                    clearInterval(checkInterval);
-                    resolve(window.echarts);
-                }
-            }, 100);
-            setTimeout(() => {
-                clearInterval(checkInterval);
-                reject(new Error('ECharts加载超时'));
-            }, 10000);
+        }
+        return totalRawData.slice(-n);
+    }
+    
+    // 更新第一个统计卡片显示分析数/总样本数
+    function updateSampleDisplay(analyzedCount, totalCount) {
+        const statN = document.getElementById("statN");
+        if(analyzedCount !== undefined && totalCount !== undefined) {
+            statN.innerText = `${analyzedCount}/${totalCount}`;
+        } else {
+            statN.innerText = "-";
+        }
+    }
+    
+    // 刷新扭矩类型下拉框
+    function updateTorqueTypeSelect() {
+        const select = document.getElementById("columnSelect");
+        select.innerHTML = "";
+        if(torqueGroups.length===0){
+            const opt = document.createElement("option"); opt.text = "无数据，请上传文件"; opt.value = ""; select.appendChild(opt);
+            return;
+        }
+        torqueGroups.forEach((g,idx)=>{
+            const opt = document.createElement("option");
+            opt.value = g.name;
+            opt.text = `${g.name} (${g.data.length}个样本)`;
+            if(currentGroupName === g.name) opt.selected = true;
+            select.appendChild(opt);
         });
     }
-
-    // 全局变量
-    let rawTorqueData = [];
-    let currentChartType = "xmr";
-    let subgroupSize = 5;
-    let chart1Instance = null, chart2Instance = null;
-
-    // 获取规格限
-    function getSpecLimits() {
-        const lsl = parseFloat(document.getElementById("lslInput").value);
-        const usl = parseFloat(document.getElementById("uslInput").value);
-        if (isNaN(lsl) || isNaN(usl) || lsl >= usl) return null;
-        return { LSL: lsl, USL: usl };
+    
+    function getGroupByName(name){ return torqueGroups.find(g=>g.name===name); }
+    
+    async function onTorqueTypeChanged() {
+        const select = document.getElementById("columnSelect");
+        let selectedName = select.value;
+        if(!selectedName && torqueGroups.length>0) selectedName = torqueGroups[0].name;
+        if(!selectedName) return;
+        currentGroupName = selectedName;
+        const group = getGroupByName(currentGroupName);
+        if(group && group.data.length){
+            totalRawData = [...group.data];
+            const recommend = confirm(`当前扭矩类型“${currentGroupName}”包含 ${totalRawData.length} 个数据点，是否根据数据分布自动推荐规格限(LSL/USL)？\n点击“确定”自动设置 (均值±3σ)，点击“取消”保留当前规格限。`);
+            if(recommend){
+                const rec = autoRecommendSpecLimits(totalRawData);
+                if(rec){ document.getElementById("lslInput").value = rec.LSL; document.getElementById("uslInput").value = rec.USL; document.getElementById("specDisplay").innerHTML = `<span style="color:#0ff;">✨ 已自动设置 LSL = ${rec.LSL} Nm, USL = ${rec.USL} Nm</span>`; }
+            }
+            await performSPCAnalysis();
+        } else { alert("该扭矩类型无有效数据"); }
     }
-
-    function calculateCPK(mean, std, LSL, USL) {
-        if (std === 0) return Infinity;
-        const cpu = (USL - mean) / (3 * std);
-        const cpl = (mean - LSL) / (3 * std);
-        return Math.min(cpu, cpl);
-    }
-
-    // 新增：根据Cpk值返回判定文本和样式类
-    function getCpkJudgment(cpk) {
-        if (cpk === Infinity || cpk === "N/A" || isNaN(cpk)) return { text: "⚠️ 无法判定 (规格限缺失或无效)", className: "grade-warning" };
-        const val = parseFloat(cpk);
-        if (val >= 1.33) return { text: `✅ Cpk = ${val.toFixed(3)} ≥ 1.33，过程能力充分，稳定合格`, className: "grade-excellent" };
-        if (val >= 1.0 && val < 1.33) return { text: `⚠️ Cpk = ${val.toFixed(3)} (1.0 ≤ Cpk ＜ 1.33)，过程能力尚可，勉强能用，建议持续监控并寻找改善机会`, className: "grade-warning" };
-        if (val < 1.0) return { text: `❌ Cpk = ${val.toFixed(3)} ＜ 1.0，过程能力不足，风险大，不合格品率高，需要立即整改！`, className: "grade-danger" };
-        return { text: `Cpk = ${val.toFixed(3)}`, className: "" };
-    }
-
-    function updateCpkJudgmentDisplay(cpkValue) {
-        const container = document.getElementById("cpkJudgmentArea");
-        if (!container) return;
-        let judgment = getCpkJudgment(cpkValue);
-        container.innerHTML = `<span class="${judgment.className}">${judgment.text}</span>`;
-    }
-
-    function autoRecommendSpecLimits(data) {
-        if (!data || data.length === 0) return null;
-        const mean = data.reduce((a,b)=>a+b,0)/data.length;
-        const variance = data.reduce((s,v)=>s+Math.pow(v-mean,2),0)/data.length;
-        const std = Math.sqrt(variance);
-        return { LSL: parseFloat((mean - 3 * std).toFixed(1)), USL: parseFloat((mean + 3 * std).toFixed(1)) };
-    }
-
-    function onTorqueColumnChanged() {
-        if (rawTorqueData.length > 0) {
-            const userConfirmed = confirm(`检测到扭矩列已更换，当前数据共 ${rawTorqueData.length} 个有效值。\n是否根据数据分布自动推荐规格限(LSL/USL)？\n点击“确定”自动设置 (均值±3σ)，点击“取消”保留当前规格限。`);
-            if (userConfirmed) {
-                const recommended = autoRecommendSpecLimits(rawTorqueData);
-                if (recommended) {
-                    document.getElementById("lslInput").value = recommended.LSL;
-                    document.getElementById("uslInput").value = recommended.USL;
-                    document.getElementById("specDisplay").innerHTML = `<span style="color:#0ff;">✨ 已自动设置 LSL = ${recommended.LSL} Nm, USL = ${recommended.USL} Nm</span>`;
-                    setTimeout(() => performSPCAnalysis(), 50);
-                } else alert("无法自动推荐规格限，请手动填写");
-            } else performSPCAnalysis();
-        } else performSPCAnalysis();
-    }
-
-    function processUploadedFile(file) {
-        if (!file) return;
-        document.getElementById("fileNameDisplay").innerText = file.name;
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            const data = new Uint8Array(evt.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(firstSheet, {defval: ""});
-            if(json.length === 0) { alert("文件无有效数据"); return; }
-            const headers = Object.keys(json[0]);
-            const colSelect = document.getElementById("columnSelect");
-            colSelect.innerHTML = "";
-            headers.forEach(h => {
-                const option = document.createElement("option");
-                option.value = h;
-                option.innerText = h;
-                colSelect.appendChild(option);
-            });
-            window.rawJson = json;
-            for(let h of headers) {
-                let firstVal = json[0][h];
-                if(typeof firstVal === "number" || (!isNaN(parseFloat(firstVal)) && isFinite(firstVal))) {
-                    colSelect.value = h;
-                    break;
+    
+    // 解析行格式文件
+    function parseRowBasedFile(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(evt){
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, {type:'array'});
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet, {header:1, defval:""});
+                if(!rows || rows.length===0){ resolve([]); return; }
+                let groups = [];
+                for(let row of rows){
+                    if(!row || row.length===0) continue;
+                    let torqueName = row[0] ? String(row[0]).trim() : `未命名_${groups.length+1}`;
+                    let values = [];
+                    for(let i=1;i<row.length;i++){
+                        let val = parseFloat(row[i]);
+                        if(!isNaN(val) && isFinite(val)) values.push(val);
+                    }
+                    if(values.length>0) groups.push({ name: torqueName, data: values });
                 }
-            }
-            extractTorqueData();
-        };
-        reader.readAsArrayBuffer(file);
+                resolve(groups);
+            };
+            reader.readAsArrayBuffer(file);
+        });
     }
-
-    const uploadZone = document.getElementById("uploadZone");
-    const fileInput = document.getElementById("fileInput");
-    uploadZone.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", (e) => { if (e.target.files.length > 0) processUploadedFile(e.target.files[0]); });
-    uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.classList.add("drag-over"); });
-    uploadZone.addEventListener("dragleave", (e) => { e.preventDefault(); uploadZone.classList.remove("drag-over"); });
-    uploadZone.addEventListener("drop", (e) => {
-        e.preventDefault();
-        uploadZone.classList.remove("drag-over");
-        const file = e.dataTransfer.files[0];
-        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv'))) processUploadedFile(file);
-        else alert("请上传 Excel 或 CSV 文件");
-    });
-
-    function extractTorqueData() {
-        const col = document.getElementById("columnSelect").value;
-        if(!window.rawJson || !col) return;
-        const data = [];
-        for(let row of window.rawJson) {
-            let val = row[col];
-            if(val === undefined || val === "") continue;
-            let num = parseFloat(val);
-            if(!isNaN(num) && isFinite(num)) data.push(num);
-        }
-        if(data.length < 5) { alert("有效扭矩数据不足5个，无法生成SPC图"); return; }
-        rawTorqueData = [...data];
-        onTorqueColumnChanged();
+    
+    async function processUploadedFile(file){
+        if(!file) return;
+        document.getElementById("fileNameDisplay").innerText = file.name;
+        const groups = await parseRowBasedFile(file);
+        if(groups.length===0){ alert("未检测到有效数据，请确保每行第一列为扭矩名，后续列为数值"); return; }
+        torqueGroups = groups;
+        currentGroupName = torqueGroups[0].name;
+        updateTorqueTypeSelect();
+        // 重置数据量模式为全部
+        currentDataRangeMode = "all";
+        document.getElementById("rangeAllBtn").classList.add("active");
+        document.getElementById("rangeLastNBtn").classList.remove("active");
+        document.getElementById("lastNPanel").style.opacity = "0.6";
+        await onTorqueTypeChanged();
     }
-
-    document.getElementById("columnSelect").addEventListener("change", () => extractTorqueData());
-    document.getElementById("applyBtn").addEventListener("click", () => {
-        if(rawTorqueData.length === 0 && window.rawJson) extractTorqueData();
-        else performSPCAnalysis();
-    });
-    document.getElementById("forceRedrawBtn").addEventListener("click", () => {
-        if (rawTorqueData.length === 0) alert("暂无有效数据，请先上传扭矩文件");
-        else performSPCAnalysis();
-    });
-    document.getElementById("chartType").addEventListener("change", (e) => {
-        currentChartType = e.target.value;
-        document.getElementById("subgroupGroup").style.display = currentChartType === "xbarR" ? "block" : "none";
-        performSPCAnalysis();
-    });
-    document.getElementById("subgroupSize").addEventListener("change", (e) => {
-        subgroupSize = parseInt(e.target.value) || 5;
-        if(subgroupSize<2) subgroupSize=2;
-        performSPCAnalysis();
-    });
-
-    function getSmartYMin(seriesData, LCL, UCL, extraMargin = 0.1) {
-        let minVal = Math.min(...seriesData, LCL);
-        let maxVal = Math.max(...seriesData, UCL);
-        let range = maxVal - minVal;
-        let candidateMin = minVal - range * extraMargin;
-        if (candidateMin < 0 && minVal > 0) candidateMin = Math.max(0, minVal - range * 0.05);
-        return candidateMin;
-    }
-
+    
+    // 核心分析函数
     async function performSPCAnalysis() {
-        if(rawTorqueData.length === 0) { alert("请先上传扭矩数据文件并选择扭矩列"); return; }
-        try {
-            await waitForECharts();
-        } catch (err) {
-            document.getElementById("chart1-error").style.display = "block";
-            document.getElementById("chart1-error").innerHTML = "⚠️ ECharts图表库加载失败，请检查网络后点击“强制重绘图表”重试。";
-            document.getElementById("chart2-error").style.display = "block";
-            document.getElementById("chart2-error").innerHTML = "⚠️ ECharts图表库加载失败，请检查网络后点击“强制重绘图表”重试。";
+        if(!torqueGroups.length || !currentGroupName){
+            alert("请先上传扭矩数据文件");
             return;
         }
-        currentChartType = document.getElementById("chartType").value;
-        subgroupSize = parseInt(document.getElementById("subgroupSize").value) || 5;
+        const group = getGroupByName(currentGroupName);
+        if(!group || group.data.length===0){ alert("当前扭矩类型无有效数据"); return; }
+        totalRawData = [...group.data];
+        let analyzedData = getFilteredData();
+        if(analyzedData === null) {
+            // 用户取消，不执行分析
+            return;
+        }
+        if(analyzedData.length === 0) {
+            alert("无有效数据进行分析，请检查数据量设置。");
+            return;
+        }
+        currentAnalyzedData = analyzedData;
+        // 更新样本显示
+        updateSampleDisplay(currentAnalyzedData.length, totalRawData.length);
+        // 计算统计量
+        const mean = currentAnalyzedData.reduce((a,b)=>a+b,0)/currentAnalyzedData.length;
+        const variance = currentAnalyzedData.reduce((s,v)=>s+Math.pow(v-mean,2),0)/currentAnalyzedData.length;
+        const std = Math.sqrt(variance);
+        const specs = getSpecLimits();
+        let cpkVal = "N/A", cpkNumeric = NaN;
+        if(specs && specs.USL>specs.LSL){
+            cpkNumeric = calculateCPK(mean, std, specs.LSL, specs.USL);
+            cpkVal = cpkNumeric.toFixed(3);
+            updateCpkJudgmentDisplay(cpkNumeric);
+            document.getElementById("specDisplay").innerHTML = `规格限: LSL=${specs.LSL.toFixed(2)} Nm, USL=${specs.USL.toFixed(2)} Nm`;
+        } else { document.getElementById("specDisplay").innerHTML = `⚠️ 请正确填写规格限（LSL < USL）以计算Cpk`; updateCpkJudgmentDisplay("N/A"); }
+        document.getElementById("statMean").innerText = mean.toFixed(2);
+        document.getElementById("statStd").innerText = std.toFixed(3);
+        document.getElementById("statCpk").innerText = cpkVal;
+        const chartType = document.getElementById("chartType").value;
         const ruleType = document.getElementById("controlRule").value;
-        if(currentChartType === "xmr") computeAndPlotXMR(rawTorqueData, ruleType);
-        else computeAndPlotXbarR(rawTorqueData, subgroupSize, ruleType);
+        const subSize = parseInt(document.getElementById("subgroupSize").value);
+        try { await waitForECharts(); } catch(e){ console.warn(e); }
+        if(chartType === "xmr") computeAndPlotXMR(currentAnalyzedData, ruleType);
+        else computeAndPlotXbarR(currentAnalyzedData, subSize, ruleType);
     }
-
-    function computeAndPlotXMR(data, ruleType) {
-        const n = data.length;
-        if (n < 2) {
-            alert("数据点少于2个，无法计算移动极差图");
-            return;
+    
+    // I-MR 绘图 (使用原始优化后的布局)
+    function computeAndPlotXMR(data, ruleType){
+        const n = data.length; if(n<2) return;
+        let mr=[]; for(let i=1;i<n;i++) mr.push(Math.abs(data[i]-data[i-1]));
+        const meanX=data.reduce((a,b)=>a+b,0)/n, meanMR=mr.reduce((a,b)=>a+b,0)/mr.length, d2=1.128;
+        const UCL_X=meanX+3*meanMR/d2, LCL_X=meanX-3*meanMR/d2, UCL_MR=3.267*meanMR, LCL_MR=0;
+        let anomaliesX=[], anomaliesMR=[];
+        for(let i=0;i<n;i++) if(data[i]>UCL_X||data[i]<LCL_X) anomaliesX.push({idx:i,val:data[i],type:"单值超限"});
+        for(let i=0;i<mr.length;i++) if(mr[i]>UCL_MR) anomaliesMR.push({idx:i,val:mr[i],type:"移动极差超限"});
+        if(ruleType==="full"){
+            let side=0,cnt=0;
+            for(let i=0;i<n;i++){ let cur=data[i]>meanX?1:(data[i]<meanX?-1:0); if(cur!==0&&cur===side) cnt++; else { side=cur; cnt=1; } if(cnt>=7) anomaliesX.push({idx:i,val:data[i],type:"连续7点同侧"}); }
         }
-        let mr = [];
-        for (let i = 1; i < n; i++) mr.push(Math.abs(data[i] - data[i-1]));
-        const meanX = data.reduce((a,b)=>a+b,0)/n;
-        const meanMR = mr.reduce((a,b)=>a+b,0)/mr.length;
-        const d2 = 1.128;
-        const UCL_X = meanX + 3 * meanMR / d2;
-        const LCL_X = meanX - 3 * meanMR / d2;
-        const UCL_MR = 3.267 * meanMR;
-        const LCL_MR = 0;
-
-        let anomaliesX = [], anomaliesMR = [];
-        for(let i=0;i<n;i++) if(data[i] > UCL_X || data[i] < LCL_X) anomaliesX.push({idx:i, val:data[i], type:"单值超限"});
-        for(let i=0;i<mr.length;i++) if(mr[i] > UCL_MR) anomaliesMR.push({idx:i, val:mr[i], type:"移动极差超限"});
-        if(ruleType === "full") {
-            let side = 0, count=0;
-            for(let i=0;i<n;i++) {
-                let cur = data[i] > meanX ? 1 : (data[i] < meanX ? -1 : 0);
-                if(cur !==0 && cur===side) count++; else { side=cur; count=1; }
-                if(count>=7) anomaliesX.push({idx:i, val:data[i], type:"连续7点位于均值同侧"});
-            }
-        }
-        updateKPIAndCPK(data, meanX);
-        updateAnomalyTable(anomaliesX, anomaliesMR, currentChartType);
+        updateAnomalyTable(anomaliesX, anomaliesMR, "xmr");
         drawControlChart1(data, UCL_X, meanX, LCL_X, anomaliesX, "单值控制图 (I Chart)", true);
-        if (mr.length === 0) {
-            const errorDiv = document.getElementById("chart2-error");
-            errorDiv.style.display = "block";
-            errorDiv.innerHTML = "⚠️ 移动极差数据不足（至少需要2个数据点）";
-            if (chart2Instance) chart2Instance.dispose();
-            document.getElementById("chart2").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ffaa88;">数据不足，无法显示极差控制图</div>';
-        } else {
-            drawControlChart2(mr, UCL_MR, meanMR, LCL_MR, anomaliesMR, "移动极差控制图 (MR Chart)");
-        }
+        if(mr.length===0){ document.getElementById("chart2-error").style.display="block"; document.getElementById("chart2-error").innerHTML="移动极差数据不足"; if(chart2Instance) chart2Instance.dispose();}
+        else drawControlChart2(mr, UCL_MR, meanMR, LCL_MR, anomaliesMR, "移动极差控制图 (MR Chart)");
     }
-
-    function computeAndPlotXbarR(data, subSize, ruleType) {
-        let groups = [];
-        for(let i=0;i+subSize<=data.length;i+=subSize) groups.push(data.slice(i,i+subSize));
-        if(groups.length<2) { alert("子组数量不足2组，请减小子组大小或增加数据"); return; }
-        let means = groups.map(g => g.reduce((a,b)=>a+b,0)/g.length);
-        let ranges = groups.map(g => Math.max(...g) - Math.min(...g));
-        const meanOfMeans = means.reduce((a,b)=>a+b,0)/means.length;
-        const meanRange = ranges.reduce((a,b)=>a+b,0)/ranges.length;
-        const n = groups[0].length;
-        const A2 = getA2(n); const D4 = getD4(n); const D3 = getD3(n);
-        const UCL_Xbar = meanOfMeans + A2 * meanRange;
-        const LCL_Xbar = meanOfMeans - A2 * meanRange;
-        const UCL_R = D4 * meanRange;
-        const LCL_R = D3 * meanRange;
-
-        let anomaliesX = [], anomaliesR = [];
-        for(let i=0;i<means.length;i++) if(means[i] > UCL_Xbar || means[i] < LCL_Xbar) anomaliesX.push({idx:i, val:means[i], type:"均值超限"});
-        for(let i=0;i<ranges.length;i++) {
-            if(ranges[i] > UCL_R) anomaliesR.push({idx:i, val:ranges[i], type:"极差超限"});
-            if(ranges[i] < LCL_R) anomaliesR.push({idx:i, val:ranges[i], type:"极差低于下控制限"});
-        }
-        if(ruleType === "full") {
-            let side=0, cnt=0;
-            for(let i=0;i<means.length;i++) {
-                let cur = means[i] > meanOfMeans ? 1 : (means[i] < meanOfMeans ? -1 : 0);
-                if(cur!==0 && cur===side) cnt++; else { side=cur; cnt=1; }
-                if(cnt>=7) anomaliesX.push({idx:i, val:means[i], type:"连续7点均值同侧"});
-            }
-        }
-        updateKPIAndCPK(data, meanOfMeans);
+    function computeAndPlotXbarR(data, subSize, ruleType){
+        let groups=[]; for(let i=0;i+subSize<=data.length;i+=subSize) groups.push(data.slice(i,i+subSize));
+        if(groups.length<2){ alert("子组数量不足2组，减小分组大小或增加数据"); return; }
+        let means=groups.map(g=>g.reduce((a,b)=>a+b,0)/g.length), ranges=groups.map(g=>Math.max(...g)-Math.min(...g));
+        const meanOfMeans=means.reduce((a,b)=>a+b,0)/means.length, meanRange=ranges.reduce((a,b)=>a+b,0)/ranges.length;
+        const n=groups[0].length; const A2={2:1.88,3:1.023,4:0.729,5:0.577,6:0.483,7:0.419,8:0.373,9:0.337,10:0.308}[n]||0.308;
+        const D4={2:3.267,3:2.574,4:2.282,5:2.114,6:2.004,7:1.924,8:1.864,9:1.816,10:1.777}[n]||1.716;
+        const D3=n<=6?0: (n===7?0.076:0.136);
+        const UCL_Xbar=meanOfMeans+A2*meanRange, LCL_Xbar=meanOfMeans-A2*meanRange, UCL_R=D4*meanRange, LCL_R=D3*meanRange;
+        let anomaliesX=[], anomaliesR=[];
+        for(let i=0;i<means.length;i++) if(means[i]>UCL_Xbar||means[i]<LCL_Xbar) anomaliesX.push({idx:i,val:means[i],type:"均值超限"});
+        for(let i=0;i<ranges.length;i++){ if(ranges[i]>UCL_R) anomaliesR.push({idx:i,val:ranges[i],type:"极差超限"}); if(ranges[i]<LCL_R) anomaliesR.push({idx:i,val:ranges[i],type:"极差低于下控制限"});}
+        if(ruleType==="full"){ let side=0,cnt=0; for(let i=0;i<means.length;i++){ let cur=means[i]>meanOfMeans?1:(means[i]<meanOfMeans?-1:0); if(cur!==0&&cur===side) cnt++; else { side=cur; cnt=1; } if(cnt>=7) anomaliesX.push({idx:i,val:means[i],type:"连续7点均值同侧"}); } }
         drawControlChart1(means, UCL_Xbar, meanOfMeans, LCL_Xbar, anomaliesX, "均值控制图 (Xbar Chart)", false);
         drawControlChart2(ranges, UCL_R, meanRange, LCL_R, anomaliesR, "极差控制图 (R Chart)");
         updateAnomalyTable(anomaliesX, anomaliesR, "xbarR");
-        let advice = generateImprovementAdvice(anomaliesX.concat(anomaliesR), "xbarR");
+        let advice = (anomaliesX.length+anomaliesR.length>0) ? "检测到异常，建议排查设备漂移、批次差异或操作手法" : "过程稳定，建议保持监控";
         document.getElementById("improvementAdvice").innerHTML = `💡 改善策略指引：${advice}`;
     }
-
-    function getA2(n) { const map={2:1.88,3:1.023,4:0.729,5:0.577,6:0.483,7:0.419,8:0.373,9:0.337,10:0.308}; return map[n]||0.308; }
-    function getD4(n) { const map={2:3.267,3:2.574,4:2.282,5:2.114,6:2.004,7:1.924,8:1.864,9:1.816,10:1.777}; return map[n]||1.716; }
-    function getD3(n) { return n<=6?0: (n===7?0.076:0.136); }
-
-    function updateKPIAndCPK(data, mean) {
-        const std = Math.sqrt(data.reduce((s,v)=>s+Math.pow(v-mean,2),0)/data.length);
-        const specs = getSpecLimits();
-        let cpkVal = "N/A";
-        let cpkNumeric = NaN;
-        let specDisplayHtml = "";
-        if (specs && specs.USL > specs.LSL) {
-            cpkNumeric = calculateCPK(mean, std, specs.LSL, specs.USL);
-            cpkVal = cpkNumeric.toFixed(3);
-            specDisplayHtml = `规格限: LSL=${specs.LSL.toFixed(2)} Nm, USL=${specs.USL.toFixed(2)} Nm`;
-        } else specDisplayHtml = `⚠️ 请正确填写规格限（LSL < USL）以计算Cpk`;
-        document.getElementById("specDisplay").innerHTML = specDisplayHtml;
-        document.getElementById("statMean").innerText = mean.toFixed(2);
-        document.getElementById("statStd").innerText = std.toFixed(3);
-        document.getElementById("statN").innerText = data.length;
-        document.getElementById("statCpk").innerText = cpkVal;
-        document.getElementById("statAnomaly").innerText = "计算中";
-        // 更新CPK判定区域
-        if (!isNaN(cpkNumeric) && isFinite(cpkNumeric) && specs) {
-            updateCpkJudgmentDisplay(cpkNumeric);
-        } else {
-            updateCpkJudgmentDisplay("N/A");
-        }
-    }
-
+    
+    // 绘图函数 - 严格沿用原始优化配置，确保无重叠
     function drawControlChart1(series, UCL, CL, LCL, anomalies, title, isIChart = true) {
         if (chart1Instance) chart1Instance.dispose();
         const dom = document.getElementById("chart1");
@@ -810,21 +402,22 @@
         try {
             chart1Instance = echarts.init(dom);
             const anomalyPoints = anomalies.map(a => ({ value: a.val, xAxis: a.idx + 1 }));
+            function getSmartYMin(seriesData, LCL, UCL, extraMargin = 0.1) {
+                let minVal = Math.min(...seriesData, LCL);
+                let maxVal = Math.max(...seriesData, UCL);
+                let range = maxVal - minVal;
+                let candidateMin = minVal - range * extraMargin;
+                if (candidateMin < 0 && minVal > 0) candidateMin = Math.max(0, minVal - range * 0.05);
+                return candidateMin;
+            }
             const yMin = getSmartYMin(series, LCL, UCL, 0.12);
+            const yMinInt = Math.floor(yMin);   // 向下取整，保证起始值为整数
             const option = {
                 title: { text: title, left: 'center', top: 8, textStyle: { fontSize: 13, color: '#b9f2ff' } },
                 tooltip: { trigger: 'axis' },
-                grid: { top: 70, bottom: 25, left: '0%', right: '8%', containLabel: true },
-                xAxis:
-                {
-                    type: 'category',
-                    name: '样本序号/子组序号',
-                    nameLocation: 'middle',
-                    nameGap: 30,
-                    axisLabel: { color: '#cce7ff', fontSize: 10, fontWeight: 'normal' },
-                    axisLine: { lineStyle: { color: '#0ff' } }
-                },
-                yAxis: { type: 'value', name: '扭矩值 (Nm)', nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#cce7ff' ,fontSize: 10, fontWeight: 'normal' }, splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } }, min: yMin },
+                grid: { top: 70, bottom: 25, left: '8%', right: '8%', containLabel: true },
+                xAxis: { type: 'category', name: '样本序号/子组序号', nameLocation: 'middle', nameGap: 30, axisLabel: { color: '#cce7ff', fontSize: 10 }, axisLine: { lineStyle: { color: '#0ff' } } },
+                yAxis: { type: 'value', name: '扭矩值 (Nm)', nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#cce7ff', fontSize: 10 }, splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } }, min: yMinInt },
                 series: [
                     { name: '测量值', type: 'line', data: series, smooth: false, symbol: 'circle', symbolSize: 6, lineStyle: { width: 2, color: '#2dd4bf' }, itemStyle: { color: '#5ee0fa' } },
                     { name: 'UCL', type: 'line', data: Array(series.length).fill(UCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
@@ -838,13 +431,8 @@
             chart1Instance.setOption(option);
             document.getElementById("mainChartTitle").innerText = title;
             document.getElementById("chart1-error").style.display = "none";
-        } catch (err) {
-            console.error("chart1渲染失败:", err);
-            document.getElementById("chart1-error").style.display = "block";
-            document.getElementById("chart1-error").innerHTML = `图表渲染失败: ${err.message || "未知错误"}，请点击“强制重绘图表”重试。`;
-        }
+        } catch (err) { console.error(err); }
     }
-
     function drawControlChart2(series, UCL, CL, LCL, anomalies, title) {
         if (chart2Instance) chart2Instance.dispose();
         const dom = document.getElementById("chart2");
@@ -864,34 +452,9 @@
             const option = {
                 title: { text: title, left: 'center', top: 8, textStyle: { fontSize: 13, color: '#b9f2ff' } },
                 tooltip: { trigger: 'axis' },
-                grid: { top: 70, bottom: 25, left: '8%', right: '8%', containLabel: true },  // 调整底部间距
-                xAxis: {
-                    type: 'category',
-                    name: '样本/子组序号',
-                    nameLocation: 'middle',
-                    nameGap: 30,  
-                    nameTextStyle: {  
-                        color: '#cce7ff',
-                        fontSize: 10,
-                        fontWeight: 'normal'
-                    },
-                    axisLabel: {
-                        color: '#cce7ff',
-                        fontSize: 10,
-                        fontWeight: 'normal',
-                        rotate: 0,  // 保持水平显示
-                        interval: 'auto'  // 自动调整标签间隔
-                    },
-                    axisLine: { lineStyle: { color: '#0ff' } }  // 添加轴线颜色，与图表一一致
-                },
-                yAxis: {
-                    type: 'value',
-                    name: '极差/移动极差',
-                    nameLocation: 'middle',
-                    nameGap: 40,
-                    axisLabel: { color: '#cce7ff', fontSize: 10, fontWeight: 'normal' },
-                    splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } }
-                },
+                grid: { top: 70, bottom: 25, left: '8%', right: '8%', containLabel: true },
+                xAxis: { type: 'category', name: '样本/子组序号', nameLocation: 'middle', nameGap: 30, nameTextStyle: { color: '#cce7ff', fontSize: 10 }, axisLabel: { color: '#cce7ff', fontSize: 10, rotate: 0, interval: 'auto' }, axisLine: { lineStyle: { color: '#0ff' } } },
+                yAxis: { type: 'value', name: '极差/移动极差', nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#cce7ff', fontSize: 10 }, splitLine: { lineStyle: { color: 'rgba(0,255,255,0.2)' } } },
                 series: [
                     { name: '极差值', type: 'line', data: series, symbol: 'diamond', symbolSize: 6, lineStyle: { width: 2, color: '#3b82f6' }, itemStyle: { color: '#60a5fa' } },
                     { name: 'UCL', type: 'line', data: Array(series.length).fill(safeUCL), lineStyle: { type: 'dashed', color: '#f97316', width: 1.5 }, symbol: 'none' },
@@ -905,84 +468,73 @@
             chart2Instance.setOption(option);
             document.getElementById("secondChartTitle").innerText = title;
             document.getElementById("chart2-error").style.display = "none";
-        } catch (err) {
-            console.error("chart2渲染失败:", err);
-            document.getElementById("chart2-error").style.display = "block";
-            document.getElementById("chart2-error").innerHTML = `图表渲染失败: ${err.message || "未知错误"}，请点击"强制重绘图表"重试。`;
-        }
+        } catch (err) { console.error(err); }
     }
-
-    function updateAnomalyTable(anomX, anomR, chartType) {
-        let tableHtml = `<thead><tr><th>序号/组号</th><th>异常值</th><th>违反规则</th><th>建议措施</th></tr></thead><tbody>`;
-        let all = [...anomX.map(a=>({idx:a.idx+1, val:a.val.toFixed(2), rule:a.type})), ...anomR.map(a=>({idx:a.idx+1, val:a.val.toFixed(2), rule:a.type}))];
-        if(all.length===0) tableHtml += `<tr><td colspan="4">✅ 未检测到异常点，过程受控</td></tr>`;
-        else {
-            all.forEach(a=>{
-                let advice = "检查设备/操作/材料一致性";
-                if(a.rule.includes("超限")) advice = "排查扭矩设备漂移、夹紧面异常或工艺参数变更";
-                if(a.rule.includes("同侧")) advice = "检查是否存在渐进性因素，如工具磨损、批次差异";
-                tableHtml += `<tr><td>${a.idx}</td><td>${a.val}</td><td>${a.rule}</td><td>${advice}</td></tr>`;
-            });
-        }
-        tableHtml += `</tbody>`;
-        document.getElementById("anomalyList").innerHTML = `<table style="width:100%">${tableHtml}</table>`;
-        let adviceText = generateImprovementAdvice(all, chartType);
-        document.getElementById("improvementAdvice").innerHTML = `💡 改善策略指引：${adviceText}`;
-        document.getElementById("statAnomaly").innerText = all.length;
+    
+    function updateAnomalyTable(anomX, anomR, chartType){ 
+        let all=[...anomX.map(a=>({idx:a.idx+1,val:a.val.toFixed(2),rule:a.type})),...anomR.map(a=>({idx:a.idx+1,val:a.val.toFixed(2),rule:a.type}))]; 
+        let html=`<thead><tr><th>序号/组号</th><th>异常值</th><th>违反规则</th><th>建议措施</th></tr></thead><tbody>`; 
+        if(all.length===0) html+=`<tr><td colspan="4">✅ 未检测到异常点，过程受控</td></tr>`; 
+        else all.forEach(a=>{ let advice="检查设备/操作/材料一致性"; if(a.rule.includes("超限")) advice="排查扭矩设备漂移、夹紧面异常"; if(a.rule.includes("同侧")) advice="检查工具磨损、批次差异"; html+=`<tr><td>${a.idx}</td><td>${a.val}</td><td>${a.rule}</td><td>${advice}</td></tr>`; }); 
+        html+=`</tbody>`; 
+        document.getElementById("anomalyList").innerHTML=`<table style="width:100%">${html}</table>`; 
+        document.getElementById("statAnomaly").innerText=all.length; 
+        document.getElementById("improvementAdvice").innerHTML=`💡 改善策略指引：${all.length===0?"过程稳定，继续保持监控":"检测到异常，建议立即排查设备及工艺参数"}`;
     }
-
-    function generateImprovementAdvice(anomalies, type) {
-        if(anomalies.length===0) return "过程稳定，建议继续保持当前扭矩控制策略，定期监控设备校准状态。";
-        let advice = "检测到过程异常，推荐：1) 校准扭矩工具 2) 检查装配工艺参数波动 3) 审核操作员手法 4) 验证物料批次一致性。立即针对异常点实施分层分析。";
-        if(type==="xbarR") advice += " 重点关注子组间的均值漂移和极差增大，排查夹具/气源稳定性。";
-        return advice;
-    }
-
-    document.getElementById("exportReportBtn").addEventListener("click", async () => {
-        if(!chart1Instance || !chart2Instance) { alert("请先完成一次SPC分析"); return; }
-        const img1 = chart1Instance.getDataURL({ type: 'png' });
-        const img2 = chart2Instance.getDataURL({ type: 'png' });
-        const meanVal = document.getElementById("statMean").innerText;
-        const cpkVal = document.getElementById("statCpk").innerText;
-        const cpkJudgmentSpan = document.getElementById("cpkJudgmentArea")?.innerText || "";
-        const anomalyCount = document.getElementById("statAnomaly").innerText;
-        let tableHtml = document.getElementById("anomalyList").innerHTML;
-        let adviceText = document.getElementById("improvementAdvice").innerHTML;
-        let columnSelect = document.getElementById("columnSelect");
-        let torqueColumnName = columnSelect.options[columnSelect.selectedIndex]?.text || "扭矩";
-        const deviceId = document.getElementById("deviceId").value;
-        const calibStatus = document.getElementById("calibStatus").value;
-        const torqueRange = document.getElementById("torqueRange").value;
-        const batchInfo = document.getElementById("batchInfo").value;
-        const specs = getSpecLimits();
-        let specText = specs ? `LSL = ${specs.LSL.toFixed(2)} Nm, USL = ${specs.USL.toFixed(2)} Nm` : "未设置";
-        const deviceHtml = `<div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:16px; padding:12px; margin-bottom:24px;"><h3 style="margin-top:0; color:#0a6c8c;">🔧 扭矩设备追溯信息</h3><p><strong>设备ID：</strong> ${deviceId}</p><p><strong>校准状态：</strong> ${calibStatus}</p><p><strong>扭矩量程/精度：</strong> ${torqueRange}</p><p><strong>最近批次/追溯码：</strong> ${batchInfo}</p></div>`;
-        const reportHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>扭矩SPC质量分析报告</title><style>body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#1e293b;padding:40px;margin:0;}h1{color:#0a6c8c;border-left:6px solid #0a6c8c;padding-left:20px;}h3{color:#1e5a7a;margin-top:20px;}.img-card{margin:20px 0;text-align:center;}table{border-collapse:collapse;width:100%;margin:16px 0;}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;}th{background:#eef2ff;}.advice{background:#fef9e3;border-left:4px solid #f97316;padding:12px;margin-top:20px;}hr{margin:24px 0;}.cpk-grade-msg{font-weight:bold;}</style></head><body><h1>⚡ 总装扭矩智能分析报告</h1><p><strong>生成时间:</strong> ${new Date().toLocaleString()}</p>${deviceHtml}<div><h3>📊 ${torqueColumnName} 关键过程指标</h3><p>📈 均值: ${meanVal} Nm &nbsp; | &nbsp; 📊 过程能力 Cpk: ${cpkVal} &nbsp; | &nbsp; ⚠️ 异常点数: ${anomalyCount}</p><p>📐 规格参数: ${specText}</p><p><strong>🔍 CPK判定：</strong> ${cpkJudgmentSpan}</p></div><div class="img-card"><h3>📉 控制图 1</h3><img src="${img1}" width="90%"/></div><div class="img-card"><h3>📉 控制图 2</h3><img src="${img2}" width="90%"/></div><div><h3>🔍 异常点明细及改善建议</h3>${tableHtml}</div><div class="advice">${adviceText}</div><hr/><footer style="font-size:12px; color:#5b6e8c;">报告基于SPC统计过程控制标准，由总装扭矩智能管理平台生成，用于展示汇报与指导现场质量改善。</footer></body></html>`;
-        const blob = new Blob([reportHtml], {type: "application/msword"});
-        saveAs(blob, `Torque_SPC_Report_${new Date().toISOString().slice(0,19)}.doc`);
-    });
-
-    window.addEventListener("resize", () => {
-        if (chart1Instance) chart1Instance.resize();
-        if (chart2Instance) chart2Instance.resize();
-    });
-
-    window.addEventListener("load", async () => {
-        let demo = [68.2, 69.1, 70.3, 71.5, 70.8, 69.6, 70.1, 72.0, 73.5, 72.2, 68.9, 70.4, 69.7, 71.2, 70.5, 69.8, 74.1, 70.9, 71.4, 70.0];
-        rawTorqueData = demo;
-        document.getElementById("fileNameDisplay").innerText = "内置演示数据 (20组扭矩)";
-        window.rawJson = null;
-        try {
-            await waitForECharts();
-            performSPCAnalysis();
-        } catch (err) {
-            console.error("初始化失败", err);
-            document.getElementById("chart1-error").style.display = "block";
-            document.getElementById("chart1-error").innerHTML = "图表库加载失败，请刷新页面重试。";
-            document.getElementById("chart2-error").style.display = "block";
-            document.getElementById("chart2-error").innerHTML = "图表库加载失败，请刷新页面重试。";
+    
+    // 事件绑定
+    document.getElementById("uploadZone").addEventListener("click",()=>document.getElementById("fileInput").click());
+    document.getElementById("fileInput").addEventListener("change",(e)=>{ if(e.target.files.length) processUploadedFile(e.target.files[0]); });
+    document.getElementById("uploadZone").addEventListener("dragover",(e)=>{ e.preventDefault(); document.getElementById("uploadZone").classList.add("drag-over"); });
+    document.getElementById("uploadZone").addEventListener("dragleave",()=>document.getElementById("uploadZone").classList.remove("drag-over"));
+    document.getElementById("uploadZone").addEventListener("drop",async(e)=>{ e.preventDefault(); document.getElementById("uploadZone").classList.remove("drag-over"); const file=e.dataTransfer.files[0]; if(file) processUploadedFile(file); });
+    document.getElementById("columnSelect").addEventListener("change",()=>onTorqueTypeChanged());
+    document.getElementById("applyBtn").addEventListener("click",()=>performSPCAnalysis());
+    document.getElementById("forceRedrawBtn").addEventListener("click",()=>performSPCAnalysis());
+    document.getElementById("chartType").addEventListener("change",(e)=>{ document.getElementById("subgroupGroup").style.display=e.target.value==="xbarR"?"block":"none"; performSPCAnalysis(); });
+    document.getElementById("subgroupSize").addEventListener("change",()=>performSPCAnalysis());
+    document.getElementById("controlRule").addEventListener("change",()=>performSPCAnalysis());
+    // 按钮切换逻辑
+    const rangeAllBtn = document.getElementById("rangeAllBtn");
+    const rangeLastNBtn = document.getElementById("rangeLastNBtn");
+    const lastNPanel = document.getElementById("lastNPanel");
+    const lastNCountInput = document.getElementById("lastNCount");
+    function setRangeMode(mode) {
+        currentDataRangeMode = mode;
+        if(mode === "all") {
+            rangeAllBtn.classList.add("active");
+            rangeLastNBtn.classList.remove("active");
+            lastNPanel.style.opacity = "0.6";
+            lastNCountInput.disabled = true;
+        } else {
+            rangeAllBtn.classList.remove("active");
+            rangeLastNBtn.classList.add("active");
+            lastNPanel.style.opacity = "1";
+            lastNCountInput.disabled = false;
         }
-    });
+        performSPCAnalysis();
+    }
+    rangeAllBtn.addEventListener("click",()=>setRangeMode("all"));
+    rangeLastNBtn.addEventListener("click",()=>setRangeMode("lastN"));
+    lastNCountInput.addEventListener("change",()=>{ if(currentDataRangeMode === "lastN") performSPCAnalysis(); });
+    // 导出报告
+    document.getElementById("exportReportBtn").addEventListener("click",async()=>{ if(!chart1Instance||!chart2Instance){ alert("请先完成分析"); return; } const img1=chart1Instance.getDataURL({type:'png'}), img2=chart2Instance.getDataURL({type:'png'}); const meanVal=document.getElementById("statMean").innerText, cpkVal=document.getElementById("statCpk").innerText, cpkJudge=document.getElementById("cpkJudgmentArea").innerHTML, anomCount=document.getElementById("statAnomaly").innerText, tableHtml=document.getElementById("anomalyList").innerHTML, advice=document.getElementById("improvementAdvice").innerHTML, groupName=currentGroupName||"扭矩", deviceId=document.getElementById("deviceId").value, calib=document.getElementById("calibStatus").value, rangeInfo=document.getElementById("torqueRange").value, batch=document.getElementById("batchInfo").value; const reportHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>扭矩SPC报告</title><style>body{font-family:Arial;padding:40px;}h1{color:#0a6c8c;}table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ccc;padding:6px;}</style></head><body><h1>总装扭矩SPC分析报告</h1><p>扭矩类型: ${groupName} | 生成时间: ${new Date().toLocaleString()}</p><div><h3>设备追溯</h3><p>ID:${deviceId} 校准:${calib} 量程:${rangeInfo} 批次:${batch}</p></div><h3>关键指标</h3><p>均值:${meanVal} Nm  Cpk:${cpkVal}  异常点数:${anomCount}</p><div>${cpkJudge}</div><div><img src="${img1}" width="90%"/></div><div><img src="${img2}" width="90%"/></div><h3>异常明细</h3>${tableHtml}<div class="advice">${advice}</div></body></html>`; saveAs(new Blob([reportHtml],{type:"application/msword"}),`Torque_SPC_${groupName}.doc`); });
+    window.addEventListener("resize",()=>{ if(chart1Instance) chart1Instance.resize(); if(chart2Instance) chart2Instance.resize(); });
+    // 内置演示数据
+    (async ()=>{
+        const demoGroup = { name: "演示数据-螺栓扭矩", data: [68.2,69.1,70.3,71.5,70.8,69.6,70.1,72.0,73.5,72.2,68.9,70.4,69.7,71.2,70.5,69.8,74.1,70.9,71.4,70.0] };
+        torqueGroups = [demoGroup];
+        currentGroupName = demoGroup.name;
+        totalRawData = [...demoGroup.data];
+        updateTorqueTypeSelect();
+        document.getElementById("fileNameDisplay").innerText = "内置演示数据 (行格式)";
+        await waitForECharts();
+        performSPCAnalysis();
+    })();
+    // 外部接口
+    window.setTorqueData = function(torqueArray, sourceName="外部数据"){ if(!Array.isArray(torqueArray)) return false; const newGroup={name:sourceName, data:torqueArray.filter(v=>!isNaN(v))}; torqueGroups=[newGroup]; currentGroupName=sourceName; totalRawData=[...newGroup.data]; updateTorqueTypeSelect(); setRangeMode("all"); performSPCAnalysis(); return true; };
+    window.getCurrentAnalysisResult = function(){ return {success:true, timestamp:new Date().toISOString(), data:{sampleCount:currentAnalyzedData.length, totalCount:totalRawData.length, mean:parseFloat(document.getElementById("statMean").innerText), cpk:document.getElementById("statCpk").innerText, anomalies:[]}}; };
+    window.clearTorqueData = function(){ torqueGroups=[]; currentGroupName=null; totalRawData=[]; updateTorqueTypeSelect(); updateSampleDisplay(0,0); document.getElementById("statMean").innerText="-"; document.getElementById("statStd").innerText="-"; document.getElementById("statCpk").innerText="-"; document.getElementById("statAnomaly").innerText="0"; if(chart1Instance) chart1Instance.clear(); if(chart2Instance) chart2Instance.clear(); return true; };
 </script>
 </body>
 </html>
